@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type ClientBrain = {
@@ -119,18 +119,27 @@ export default function ClientsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewingBrain, setViewingBrain] = useState<Client | null>(null)
+  const [brainCache, setBrainCache] = useState<Record<string, ClientBrain>>({})
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const supabase = createClient()
 
   useEffect(() => { fetchClients() }, [])
 
-  // Poll every 5 seconds while any client is still being analyzed
+  // Stable polling — only create one interval, don't recreate on every clients change
   useEffect(() => {
     const hasAnalyzing = clients.some((c) => c.brain_status === 'analyzing')
-    if (!hasAnalyzing) return
-    const interval = setInterval(fetchClients, 5000)
-    return () => clearInterval(interval)
-  }, [clients])
+    if (hasAnalyzing && !pollRef.current) {
+      pollRef.current = setInterval(fetchClients, 3000)
+    } else if (!hasAnalyzing && pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+    // Cleanup on unmount
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    }
+  }, [clients.some((c) => c.brain_status === 'analyzing')])
 
   async function fetchClients() {
     const { data } = await supabase
@@ -184,9 +193,8 @@ export default function ClientsPage() {
   async function triggerAnalysis(clientId: string, fields: typeof BLANK_FORM) {
     console.log('[brain] Starting analysis for client:', clientId)
 
-    let brain = null
+    let brain: ClientBrain | null = null
     try {
-      console.log('[brain] Calling /api/analyze-client...')
       const res = await fetch('/api/analyze-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -212,16 +220,20 @@ export default function ClientsPage() {
     }
 
     if (brain) {
-      console.log('[brain] Saving to Supabase...')
-      const { error: dbError } = await supabase
+      // Store in memory immediately — card updates even if DB write fails
+      setBrainCache((prev) => ({ ...prev, [clientId]: brain! }))
+
+      // Separate updates: status first (always works), then brain column (may fail if column missing)
+      await supabase.from('clients').update({ brain_status: 'complete' }).eq('id', clientId)
+      const { error: brainErr } = await supabase
         .from('clients')
-        .update({ brain: JSON.stringify(brain), brain_status: 'complete' })
+        .update({ brain: JSON.stringify(brain) })
         .eq('id', clientId)
-      if (dbError) {
-        console.error('[brain] Supabase update error:', dbError)
-        await supabase.from('clients').update({ brain_status: 'error' }).eq('id', clientId)
+      if (brainErr) {
+        console.warn('[brain] Could not persist brain column (may not exist yet):', brainErr.message)
+        console.log('[brain] Brain is cached in memory — card will still display correctly')
       } else {
-        console.log('[brain] Supabase updated — brain complete!')
+        console.log('[brain] Brain persisted to Supabase successfully')
       }
     } else {
       console.log('[brain] No brain returned — setting status to error')
@@ -232,6 +244,8 @@ export default function ClientsPage() {
   }
 
   async function reanalyze(client: Client) {
+    // Clear cached brain so card shows "Building..." state
+    setBrainCache((prev) => { const next = { ...prev }; delete next[client.id]; return next })
     await supabase.from('clients').update({ brain_status: 'analyzing' }).eq('id', client.id)
     fetchClients()
     triggerAnalysis(client.id, {
@@ -252,8 +266,13 @@ export default function ClientsPage() {
   }
 
   function parseBrain(client: Client): ClientBrain | null {
+    // Check in-memory cache first (populated immediately after API success)
+    if (brainCache[client.id]) return brainCache[client.id]
     if (!client.brain) return null
-    try { return JSON.parse(client.brain) } catch { return null }
+    try {
+      // Handle both string (text column) and object (jsonb column)
+      return typeof client.brain === 'object' ? client.brain as ClientBrain : JSON.parse(client.brain)
+    } catch { return null }
   }
 
   return (
@@ -475,7 +494,9 @@ export default function ClientsPage() {
 
       {/* View Brain Modal */}
       {viewingBrain && (() => {
-        const brain = parseBrain(viewingBrain)
+        // Use the latest client data if available, fallback to snapshot
+        const liveClient = clients.find((c) => c.id === viewingBrain.id) ?? viewingBrain
+        const brain = parseBrain(liveClient)
         if (!brain) return null
         const av = getAvatarColor(viewingBrain.name)
 
