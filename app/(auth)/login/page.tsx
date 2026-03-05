@@ -2,10 +2,8 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -16,17 +14,24 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error) {
-      setError(error.message)
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      // Hard redirect so the server always sees the freshly-written session cookie.
+      // router.push (soft nav) can race with cookie writes on SSR, leaving the
+      // server layout seeing no session and bouncing back to /login.
+      window.location.href = '/secretary'
+    } catch {
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    router.push('/secretary')
-    router.refresh()
   }
 
   return (
