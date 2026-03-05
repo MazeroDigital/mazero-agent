@@ -183,12 +183,38 @@ export default function ClientsPage() {
 
   async function triggerAnalysis(clientId: string, fields: typeof BLANK_FORM) {
     try {
-      await fetch('/api/analyze-client', {
+      const res = await fetch('/api/analyze-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, ...fields }),
+        body: JSON.stringify({
+          name: fields.name,
+          description: fields.description,
+          website_url: fields.website_url,
+        }),
       })
-    } catch {}
+
+      if (res.ok) {
+        const { brain } = await res.json()
+        // Browser client saves to Supabase — already authenticated, no RLS issues
+        await supabase
+          .from('clients')
+          .update({ brain: JSON.stringify(brain), brain_status: 'complete' })
+          .eq('id', clientId)
+      } else {
+        const { error } = await res.json().catch(() => ({ error: 'Request failed' }))
+        console.error('Brain API error:', error)
+        await supabase
+          .from('clients')
+          .update({ brain_status: 'error' })
+          .eq('id', clientId)
+      }
+    } catch (err) {
+      console.error('triggerAnalysis error:', err)
+      await supabase
+        .from('clients')
+        .update({ brain_status: 'error' })
+        .eq('id', clientId)
+    }
     fetchClients()
   }
 
