@@ -19,6 +19,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error) {
+        console.error('Supabase auth error:', error)
         setError(error.message)
         return
       }
@@ -27,8 +28,10 @@ export default function LoginPage() {
       // router.push (soft nav) can race with cookie writes on SSR, leaving the
       // server layout seeing no session and bouncing back to /login.
       window.location.href = '/secretary'
-    } catch {
-      setError('An unexpected error occurred. Please try again.')
+    } catch (err) {
+      console.error('Login exception:', err)
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg || 'An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
