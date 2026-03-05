@@ -182,7 +182,11 @@ export default function ClientsPage() {
   }
 
   async function triggerAnalysis(clientId: string, fields: typeof BLANK_FORM) {
+    console.log('[brain] Starting analysis for client:', clientId)
+
+    let brain = null
     try {
+      console.log('[brain] Calling /api/analyze-client...')
       const res = await fetch('/api/analyze-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -193,28 +197,37 @@ export default function ClientsPage() {
         }),
       })
 
-      if (res.ok) {
-        const { brain } = await res.json()
-        // Browser client saves to Supabase — already authenticated, no RLS issues
-        await supabase
-          .from('clients')
-          .update({ brain: JSON.stringify(brain), brain_status: 'complete' })
-          .eq('id', clientId)
+      console.log('[brain] API response status:', res.status)
+
+      if (!res.ok) {
+        const text = await res.text()
+        console.error('[brain] API error response:', text)
       } else {
-        const { error } = await res.json().catch(() => ({ error: 'Request failed' }))
-        console.error('Brain API error:', error)
-        await supabase
-          .from('clients')
-          .update({ brain_status: 'error' })
-          .eq('id', clientId)
+        const data = await res.json()
+        console.log('[brain] API returned data:', JSON.stringify(data).slice(0, 300))
+        brain = data.brain ?? null
       }
     } catch (err) {
-      console.error('triggerAnalysis error:', err)
-      await supabase
-        .from('clients')
-        .update({ brain_status: 'error' })
-        .eq('id', clientId)
+      console.error('[brain] fetch threw exception:', err)
     }
+
+    if (brain) {
+      console.log('[brain] Saving to Supabase...')
+      const { error: dbError } = await supabase
+        .from('clients')
+        .update({ brain: JSON.stringify(brain), brain_status: 'complete' })
+        .eq('id', clientId)
+      if (dbError) {
+        console.error('[brain] Supabase update error:', dbError)
+        await supabase.from('clients').update({ brain_status: 'error' }).eq('id', clientId)
+      } else {
+        console.log('[brain] Supabase updated — brain complete!')
+      }
+    } else {
+      console.log('[brain] No brain returned — setting status to error')
+      await supabase.from('clients').update({ brain_status: 'error' }).eq('id', clientId)
+    }
+
     fetchClients()
   }
 
