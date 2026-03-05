@@ -124,6 +124,14 @@ export default function ClientsPage() {
 
   useEffect(() => { fetchClients() }, [])
 
+  // Poll every 5 seconds while any client is still being analyzed
+  useEffect(() => {
+    const hasAnalyzing = clients.some((c) => c.brain_status === 'analyzing')
+    if (!hasAnalyzing) return
+    const interval = setInterval(fetchClients, 5000)
+    return () => clearInterval(interval)
+  }, [clients])
+
   async function fetchClients() {
     const { data } = await supabase
       .from('clients')
@@ -289,11 +297,21 @@ export default function ClientsPage() {
                 </div>
 
                 {/* Brain section */}
-                <div style={{ background: isAnalyzing ? 'rgba(245,166,35,0.04)' : brain ? 'rgba(245,166,35,0.05)' : 'var(--bg-secondary)', border: `1px solid ${isAnalyzing ? 'rgba(245,166,35,0.2)' : brain ? 'rgba(245,166,35,0.18)' : 'var(--border)'}`, borderRadius: '9px', padding: '12px' }}>
+                <div style={{ background: isAnalyzing ? 'rgba(245,166,35,0.04)' : client.brain_status === 'error' ? 'rgba(220,38,38,0.04)' : brain ? 'rgba(245,166,35,0.05)' : 'var(--bg-secondary)', border: `1px solid ${isAnalyzing ? 'rgba(245,166,35,0.2)' : client.brain_status === 'error' ? 'rgba(220,38,38,0.2)' : brain ? 'rgba(245,166,35,0.18)' : 'var(--border)'}`, borderRadius: '9px', padding: '12px' }}>
                   {isAnalyzing ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f5a623', animation: 'pulse 1.5s infinite' }} />
                       <span style={{ fontSize: '12px', color: '#d97706', fontWeight: '600' }}>Building Client Brain…</span>
+                    </div>
+                  ) : client.brain_status === 'error' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: '600' }}>⚠ Analysis failed</span>
+                      <button
+                        onClick={() => reanalyze(client)}
+                        style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: '6px', fontSize: '11px', fontWeight: '600', color: '#dc2626', padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        Retry
+                      </button>
                     </div>
                   ) : brain ? (
                     <div>
