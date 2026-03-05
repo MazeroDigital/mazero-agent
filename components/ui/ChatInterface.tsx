@@ -1,11 +1,18 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 /* ─── Types ──────────────────────────────────────────── */
 interface Message {
   role: 'user' | 'assistant'
   content: string
+}
+
+interface ClientOption {
+  id: string
+  name: string
+  brain: string | null
 }
 
 interface AgentConfig {
@@ -267,6 +274,8 @@ export default function ChatInterface({ agent }: { agent: string }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [clients, setClients] = useState<ClientOption[]>([])
+  const [selectedClientId, setSelectedClientId] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -274,6 +283,15 @@ export default function ChatInterface({ agent }: { agent: string }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('clients')
+      .select('id, name, brain')
+      .order('name')
+      .then(({ data }) => setClients(data ?? []))
+  }, [])
 
   const sendMessage = useCallback(
     async (text?: string) => {
@@ -293,12 +311,16 @@ export default function ChatInterface({ agent }: { agent: string }) {
       abortRef.current = new AbortController()
 
       try {
+        const selectedClient = clients.find((c) => c.id === selectedClientId)
+        const clientBrain = selectedClient?.brain ?? undefined
+
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: history.map((m) => ({ role: m.role, content: m.content })),
             agent,
+            clientBrain,
           }),
           signal: abortRef.current.signal,
         })
@@ -413,33 +435,61 @@ export default function ChatInterface({ agent }: { agent: string }) {
             </div>
           </div>
         </div>
-        {messages.length > 0 && (
-          <button
-            onClick={clearChat}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Client context selector */}
+          <select
+            value={selectedClientId}
+            onChange={(e) => setSelectedClientId(e.target.value)}
             style={{
-              background: 'transparent',
-              border: '1px solid var(--border-strong)',
+              background: selectedClientId ? 'rgba(245,166,35,0.08)' : 'var(--bg-secondary)',
+              border: `1px solid ${selectedClientId ? 'rgba(245,166,35,0.3)' : 'var(--border)'}`,
               borderRadius: '7px',
-              color: 'var(--text-muted)',
+              color: selectedClientId ? '#d97706' : 'var(--text-muted)',
               fontSize: '12px',
               fontWeight: '600',
-              padding: '5px 14px',
+              padding: '5px 10px',
               cursor: 'pointer',
               fontFamily: 'inherit',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-secondary)'
-              ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)'
-            }}
-            onMouseLeave={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-              ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'
+              outline: 'none',
+              maxWidth: '160px',
             }}
           >
-            New chat
-          </button>
-        )}
+            <option value="">🧠 No client</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id} disabled={!c.brain}>
+                {c.name}{!c.brain ? ' (no brain)' : ''}
+              </option>
+            ))}
+          </select>
+
+          {messages.length > 0 && (
+            <button
+              onClick={clearChat}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--border-strong)',
+                borderRadius: '7px',
+                color: 'var(--text-muted)',
+                fontSize: '12px',
+                fontWeight: '600',
+                padding: '5px 14px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-secondary)'
+                ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'
+              }}
+            >
+              New chat
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Message area */}

@@ -41,9 +41,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { messages, agent } = await req.json()
+    const { messages, agent, clientBrain } = await req.json()
 
-    const systemPrompt = SYSTEM_PROMPTS[agent] ?? SYSTEM_PROMPTS.research
+    let systemPrompt = SYSTEM_PROMPTS[agent] ?? SYSTEM_PROMPTS.research
+
+    // Inject client brain into system prompt when a client is selected
+    if (clientBrain) {
+      systemPrompt += `\n\n---\nCLIENT BRAIN (active client context):\n${clientBrain}\n\nAlways use this client context to tailor your responses. Reference the client's brand, audience, tone of voice, and positioning in everything you produce.\n---`
+    }
 
     // Initialize client per-request so missing env var fails gracefully
     const client = new Anthropic({ apiKey })

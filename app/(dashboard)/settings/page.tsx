@@ -13,10 +13,24 @@ create table if not exists clients (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) not null,
   name text not null,
+  industry text,
   description text,
   website_url text,
+  instagram_handle text,
+  target_audience text,
+  brand_colors text,
+  brain text,
+  brain_status text default 'none',
   created_at timestamptz default now()
 );
+
+-- If your clients table already exists, run these to add new columns:
+-- alter table clients add column if not exists industry text;
+-- alter table clients add column if not exists instagram_handle text;
+-- alter table clients add column if not exists target_audience text;
+-- alter table clients add column if not exists brand_colors text;
+-- alter table clients add column if not exists brain text;
+-- alter table clients add column if not exists brain_status text default 'none';
 
 create table if not exists tasks (
   id uuid default gen_random_uuid() primary key,
