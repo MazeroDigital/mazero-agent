@@ -14,12 +14,19 @@ const PROTECTED_PATHS = [
 ]
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  // If env vars aren't configured, skip middleware auth checks.
+  // Page-level auth in layout.tsx will still protect all routes.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.next()
+  }
+
+  try {
+    let supabaseResponse = NextResponse.next({ request })
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -34,31 +41,33 @@ export async function middleware(request: NextRequest) {
           )
         },
       },
+    })
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    const { pathname } = request.nextUrl
+
+    const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p))
+    if (!user && isProtected) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
     }
-  )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    if (user && pathname === '/login') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/secretary'
+      return NextResponse.redirect(url)
+    }
 
-  const { pathname } = request.nextUrl
-
-  // Protect dashboard routes
-  const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p))
-  if (!user && isProtected) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+    return supabaseResponse
+  } catch {
+    // If middleware throws for any reason, allow the request through.
+    // Page-level auth checks in layout.tsx will still protect routes.
+    return NextResponse.next()
   }
-
-  // Redirect logged-in users away from login page
-  if (user && pathname === '/login') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/secretary'
-    return NextResponse.redirect(url)
-  }
-
-  return supabaseResponse
 }
 
 export const config = {
