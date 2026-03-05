@@ -1,9 +1,19 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PROTECTED_PATHS = ['/clients', '/content', '/proposals', '/tasks', '/settings']
+const PROTECTED_PATHS = [
+  '/dashboard',
+  '/clients',
+  '/content',
+  '/proposals',
+  '/tasks',
+  '/settings',
+  '/secretary',
+  '/research',
+  '/proposal',
+]
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -44,7 +54,7 @@ export async function proxy(request: NextRequest) {
   // Redirect logged-in users away from login page
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = '/clients'
+    url.pathname = '/secretary'
     return NextResponse.redirect(url)
   }
 

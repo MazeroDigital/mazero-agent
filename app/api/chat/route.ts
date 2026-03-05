@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+// Allow streaming responses up to 60 seconds on Vercel
+export const maxDuration = 60
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   secretary: `You are the Secretary Agent for Mazero Digital Marketing — a sharp, proactive executive assistant. You help manage tasks, deadlines, priorities, briefings, and daily workflows.
@@ -31,10 +32,21 @@ Provide comprehensive, well-structured research with clear sections. Use headers
 }
 
 export async function POST(req: NextRequest) {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY is not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     const { messages, agent } = await req.json()
 
     const systemPrompt = SYSTEM_PROMPTS[agent] ?? SYSTEM_PROMPTS.research
+
+    // Initialize client per-request so missing env var fails gracefully
+    const client = new Anthropic({ apiKey })
 
     const stream = await client.messages.create({
       model: 'claude-sonnet-4-6',
