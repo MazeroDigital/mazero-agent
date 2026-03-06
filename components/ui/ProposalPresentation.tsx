@@ -24,7 +24,10 @@ type Props = {
   prospectName: string
   industry: string
   images: ProposalImages
-  onClose: () => void
+  onClose?: () => void
+  embedded?: boolean
+  onFullscreen?: () => void
+  onDownloadPDF?: () => void
 }
 
 // ═══════════════════════════════════
@@ -630,7 +633,7 @@ function SlideContact({ name }: { name: string }) {
 // MAIN COMPONENT
 // ═══════════════════════════════════
 
-export default function ProposalPresentation({ proposal, prospectName, industry, images, onClose }: Props) {
+export default function ProposalPresentation({ proposal, prospectName, industry, images, onClose, embedded, onFullscreen, onDownloadPDF }: Props) {
   const [current, setCurrent] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -646,23 +649,21 @@ export default function ProposalPresentation({ proposal, prospectName, industry,
   const investment = findSection(sections, /investment/i, /pricing/i)
   const whyMazero = findSection(sections, /why mazero/i, /why us/i)
 
-  // Merge solution + content + deliverables for the pillars slide
   const pillarsSection = solution || contentStrategy
-  // Merge opportunity content for before/after
   const beforeAfterSection = opportunity
 
-  type Slide = { render: () => React.ReactElement }
+  type Slide = { label: string; render: () => React.ReactElement }
   const slides: Slide[] = [
-    { render: () => <SlideCover name={prospectName} tagline={tagline} image={images.cover} /> },
-    { render: () => <SlideCurrentReality section={opportunity} image={images.situation} /> },
-    { render: () => <SlideCaseStudy /> },
-    { render: () => <SlidePillars section={pillarsSection} /> },
-    { render: () => <SlideWhatWeDo section={deliverables || contentStrategy} image={images.solution} /> },
-    { render: () => <SlideBeforeAfter section={beforeAfterSection} /> },
-    { render: () => <SlideRoadmap section={roadmap} /> },
-    { render: () => <SlideInvestment section={investment} /> },
-    { render: () => <SlideWhyMazero section={whyMazero} /> },
-    { render: () => <SlideContact name={prospectName} /> },
+    { label: 'Cover', render: () => <SlideCover name={prospectName} tagline={tagline} image={images.cover} /> },
+    { label: 'Current Reality', render: () => <SlideCurrentReality section={opportunity} image={images.situation} /> },
+    { label: 'Case Study', render: () => <SlideCaseStudy /> },
+    { label: 'Our Approach', render: () => <SlidePillars section={pillarsSection} /> },
+    { label: 'Process', render: () => <SlideWhatWeDo section={deliverables || contentStrategy} image={images.solution} /> },
+    { label: 'Before & After', render: () => <SlideBeforeAfter section={beforeAfterSection} /> },
+    { label: 'Roadmap', render: () => <SlideRoadmap section={roadmap} /> },
+    { label: 'Investment', render: () => <SlideInvestment section={investment} /> },
+    { label: 'Why Mazero', render: () => <SlideWhyMazero section={whyMazero} /> },
+    { label: 'Contact', render: () => <SlideContact name={prospectName} /> },
   ]
 
   const total = slides.length
@@ -670,14 +671,15 @@ export default function ProposalPresentation({ proposal, prospectName, industry,
   const goPrev = useCallback(() => setCurrent((c) => Math.max(c - 1, 0)), [])
 
   useEffect(() => {
+    if (embedded) return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goNext() }
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
-      if (e.key === 'Escape') { isFullscreen ? document.exitFullscreen?.() : onClose() }
+      if (e.key === 'Escape') { isFullscreen ? document.exitFullscreen?.() : onClose?.() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goNext, goPrev, isFullscreen, onClose])
+  }, [goNext, goPrev, isFullscreen, onClose, embedded])
 
   function toggleFullscreen() {
     if (isFullscreen) document.exitFullscreen?.()
@@ -712,6 +714,79 @@ export default function ProposalPresentation({ proposal, prospectName, industry,
     w.print()
   }
 
+  // ═══════════════════════════════════
+  // EMBEDDED MODE — inline slide viewer
+  // ═══════════════════════════════════
+  if (embedded) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0e0c0a', borderRadius: '14px', overflow: 'hidden' }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+
+        {/* Slide viewport */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080808', minHeight: 0 }}>
+          <div style={{ width: '100%', height: '100%', aspectRatio: '16/9', position: 'relative', overflow: 'hidden' }}>
+            {slides[current]?.render()}
+          </div>
+
+          {/* Nav arrows */}
+          {current > 0 && (
+            <button onClick={goPrev} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a8a78" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+          )}
+          {current < total - 1 && (
+            <button onClick={goNext} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a8a78" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+          )}
+        </div>
+
+        {/* Bottom bar: slide dots + slide label + actions */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(14,12,10,0.95)', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {slides.map((_, i) => (
+              <button key={i} onClick={() => setCurrent(i)} style={{
+                width: i === current ? '18px' : '6px', height: '4px', borderRadius: '2px',
+                background: i === current ? C.gold : 'rgba(255,255,255,0.15)',
+                border: 'none', cursor: 'pointer', transition: 'all 0.2s ease',
+              }} />
+            ))}
+            <span style={{ fontSize: '11px', color: '#9a8a78', fontFamily: "'Inter', sans-serif", marginLeft: '8px', fontWeight: 500 }}>
+              {current + 1}/{total}
+            </span>
+          </div>
+
+          <span style={{ fontSize: '11px', color: C.gold, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px', textTransform: 'uppercase' }}>
+            {slides[current]?.label}
+          </span>
+        </div>
+
+        {/* Slide thumbnails strip */}
+        <div style={{ display: 'flex', gap: '4px', padding: '8px 12px', background: 'rgba(14,12,10,0.98)', borderTop: '1px solid rgba(255,255,255,0.04)', overflowX: 'auto', flexShrink: 0 }}>
+          {slides.map((slide, i) => (
+            <button key={i} onClick={() => setCurrent(i)} style={{
+              flexShrink: 0, width: '64px', height: '36px', borderRadius: '4px', overflow: 'hidden',
+              border: i === current ? `2px solid ${C.gold}` : '2px solid rgba(255,255,255,0.06)',
+              cursor: 'pointer', position: 'relative', opacity: i === current ? 1 : 0.5,
+              transition: 'all 0.2s ease', background: '#111',
+            }}>
+              <div style={{ transform: 'scale(0.067)', transformOrigin: 'top left', width: '960px', height: '540px', pointerEvents: 'none' }}>
+                {slide.render()}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ═══════════════════════════════════
+  // FULLSCREEN MODE — overlay presentation
+  // ═══════════════════════════════════
   return (
     <div ref={containerRef} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', flexDirection: 'column' }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
@@ -756,12 +831,10 @@ export default function ProposalPresentation({ proposal, prospectName, industry,
 
       {/* Slide viewport */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080808' }}>
-        {/* 16:9 container */}
         <div style={{ width: '100%', height: '100%', maxWidth: isFullscreen ? '100%' : 'calc(100vh * 16 / 9)', aspectRatio: '16/9', position: 'relative', overflow: 'hidden', boxShadow: isFullscreen ? 'none' : '0 0 80px rgba(0,0,0,0.5)' }}>
           {slides[current]?.render()}
         </div>
 
-        {/* Nav arrows */}
         {current > 0 && (
           <button onClick={goPrev} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}

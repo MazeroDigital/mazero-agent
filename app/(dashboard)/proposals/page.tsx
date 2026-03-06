@@ -65,13 +65,6 @@ function CanvaIcon() {
     </svg>
   )
 }
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  )
-}
 function ArrowLeftIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -92,135 +85,6 @@ function BoltIcon() {
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   )
-}
-
-// --- Markdown Renderer ---
-function renderMarkdown(md: string) {
-  const lines = md.split('\n')
-  const elements: React.ReactElement[] = []
-  let listItems: string[] = []
-  let listType: 'ul' | 'ol' | null = null
-
-  function flushList() {
-    if (listItems.length > 0 && listType) {
-      const Tag = listType
-      elements.push(
-        <Tag key={`list-${elements.length}`} style={{ paddingLeft: '22px', margin: '8px 0' }}>
-          {listItems.map((item, i) => (
-            <li key={i} style={{ marginBottom: '4px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.7' }}
-              dangerouslySetInnerHTML={{ __html: inlineFormat(item) }} />
-          ))}
-        </Tag>
-      )
-      listItems = []
-      listType = null
-    }
-  }
-
-  function inlineFormat(text: string): string {
-    return text
-      .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text-primary);font-weight:700">$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12px">$1</code>')
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (line.startsWith('# ')) {
-      flushList()
-      elements.push(
-        <h1 key={i} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', margin: '28px 0 12px', borderBottom: '2px solid var(--gold)', paddingBottom: '8px' }}
-          dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }} />
-      )
-    } else if (line.startsWith('### ')) {
-      flushList()
-      elements.push(
-        <h3 key={i} style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-secondary)', margin: '16px 0 6px' }}
-          dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(4)) }} />
-      )
-    } else if (line.startsWith('## ')) {
-      flushList()
-      elements.push(
-        <h2 key={i} style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text-primary)', margin: '24px 0 8px' }}
-          dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(3)) }} />
-      )
-    } else if (/^[-*]\s/.test(line)) {
-      if (listType !== 'ul') { flushList(); listType = 'ul' }
-      listItems.push(line.replace(/^[-*]\s/, ''))
-    } else if (/^\d+\.\s/.test(line)) {
-      if (listType !== 'ol') { flushList(); listType = 'ol' }
-      listItems.push(line.replace(/^\d+\.\s/, ''))
-    } else if (line.startsWith('> ')) {
-      flushList()
-      elements.push(
-        <blockquote key={i} style={{
-          borderLeft: '3px solid var(--gold)', paddingLeft: '16px', margin: '12px 0',
-          color: 'var(--text-secondary)', fontStyle: 'italic', background: 'var(--gold-light)',
-          padding: '12px 16px 12px 20px', borderRadius: '0 8px 8px 0',
-        }}
-          dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }} />
-      )
-    } else if (line.startsWith('---')) {
-      flushList()
-      elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />)
-    } else if (line.trim() === '') {
-      flushList()
-    } else {
-      flushList()
-      elements.push(
-        <p key={i} style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.7', margin: '6px 0' }}
-          dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />
-      )
-    }
-  }
-  flushList()
-  return elements
-}
-
-// --- Proposal Image ---
-function ProposalImage({ src, alt }: { src: string | null; alt: string }) {
-  if (!src) return null
-  return (
-    <div style={{ margin: '20px 0', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-      <img src={src} alt={alt} style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }}
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-    </div>
-  )
-}
-
-// --- Render Markdown with Section Images ---
-function renderMarkdownWithImages(md: string, images: ProposalImages) {
-  const sectionImages: { pattern: RegExp; role: keyof ProposalImages }[] = [
-    { pattern: /^## .*(?:current situation|opportunity|challenge)/i, role: 'situation' },
-    { pattern: /^## .*(?:our solution|solution|strategy|approach)/i, role: 'solution' },
-    { pattern: /^## .*(?:investment|pricing|packages)/i, role: 'investment' },
-  ]
-
-  const lines = md.split('\n')
-  const baseElements = renderMarkdown(md)
-  const result: React.ReactElement[] = []
-
-  // Map line indices to image insertions
-  const imageInsertions = new Map<number, React.ReactElement>()
-  const used = new Set<string>()
-  for (let i = 0; i < lines.length; i++) {
-    for (const mapping of sectionImages) {
-      if (!used.has(mapping.role) && mapping.pattern.test(lines[i]) && images[mapping.role]) {
-        used.add(mapping.role)
-        imageInsertions.set(i, <ProposalImage key={`img-${mapping.role}`} src={images[mapping.role]} alt={mapping.role} />)
-        break
-      }
-    }
-  }
-
-  for (const el of baseElements) {
-    const elKey = Number(el.key)
-    const img = imageInsertions.get(elKey)
-    if (img) result.push(img)
-    result.push(el)
-  }
-
-  return result
 }
 
 // --- Spinner ---
@@ -271,7 +135,6 @@ export default function ProposalsPage() {
   })
   const [imagesLoading, setImagesLoading] = useState(false)
   const [canvaUrl, setCanvaUrl] = useState<string | null>(null)
-  const [showResearch, setShowResearch] = useState(false)
   const [showPresentation, setShowPresentation] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -615,7 +478,6 @@ export default function ProposalsPage() {
     setCanvaUrl(null)
     setRefineMessages([])
     setRefineInput('')
-    setShowResearch(false)
     setVersions([])
     setActiveVersion(0)
     setShowVersions(false)
@@ -768,11 +630,10 @@ export default function ProposalsPage() {
             <button onClick={startOver} className="btn-ghost" style={{ fontSize: '12px' }}>
               <ArrowLeftIcon /> New Proposal
             </button>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              <button onClick={() => setShowResearch(!showResearch)} className="btn-ghost"
-                style={{ padding: '6px 12px', fontSize: '11px', background: showResearch ? 'var(--gold-light)' : undefined, color: showResearch ? 'var(--gold)' : undefined }}>
-                <SearchIcon /> Research
-              </button>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginRight: '8px' }}>
+                {prospectName}
+              </span>
               <button onClick={copyToClipboard} className="btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>
                 {copied ? <><CheckIcon /> Copied</> : <><CopyIcon /> Copy</>}
               </button>
@@ -792,36 +653,16 @@ export default function ProposalsPage() {
 
           {/* Split layout */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '12px', flex: 1, minHeight: 0 }}>
-            {/* Left: Proposal */}
-            <div className="card" style={{ borderRadius: '14px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-
-              {/* Research panel */}
-              {showResearch && research && (
-                <div style={{ borderBottom: '1px solid var(--border)', padding: '16px 24px', background: 'var(--bg-secondary)', maxHeight: '35vh', overflow: 'auto', flexShrink: 0 }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '10px' }}>Research Brief</h3>
-                  <div style={{ fontSize: '13px' }}>{renderMarkdown(research)}</div>
-                </div>
-              )}
-
-              {/* Proposal with images */}
-              <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px', minHeight: 0 }}>
-                {/* Hero cover image */}
-                {proposalImages.cover ? (
-                  <div style={{ margin: '0 -32px 24px', position: 'relative' }}>
-                    <img src={proposalImages.cover} alt="Proposal cover"
-                      style={{ width: '100%', height: '260px', objectFit: 'cover', display: 'block' }}
-                      onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(10,10,15,0.85))' }} />
-                  </div>
-                ) : imagesLoading ? (
-                  <div style={{ margin: '0 -32px 24px', height: '260px', background: 'linear-gradient(135deg, var(--bg-secondary), rgba(245,166,35,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                    <Spinner /> <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Generating visuals...</span>
-                  </div>
-                ) : null}
-
-                {renderMarkdownWithImages(proposal, proposalImages)}
-              </div>
-            </div>
+            {/* Left: Slide Presentation (embedded) */}
+            <Suspense fallback={<div style={{ background: '#0e0c0a', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner size={24} /></div>}>
+              <ProposalPresentation
+                embedded
+                proposal={proposal}
+                prospectName={prospectName}
+                industry={brief?.industry || ''}
+                images={proposalImages}
+              />
+            </Suspense>
 
             {/* Right: Refinement chat */}
             <div className="card" style={{ borderRadius: '14px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
