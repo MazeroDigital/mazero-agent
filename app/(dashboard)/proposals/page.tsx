@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 type Step = 'intake' | 'review' | 'processing' | 'output'
-type ProcessingPhase = 'research' | 'generate' | 'design'
+type ProcessingPhase = 'research' | 'generate' | 'visuals' | 'design'
 
 type Brief = {
   companyName: string
@@ -15,6 +15,13 @@ type Brief = {
   services: string
   notes: string
   budget: string
+}
+
+type ProposalImages = {
+  cover: string | null
+  opportunity: string | null
+  strategy: string | null
+  results: string | null
 }
 
 type ChatMessage = {
@@ -109,6 +116,13 @@ function CanvaIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="3" /><path d="M8 12h8" /><path d="M12 8v8" />
+    </svg>
+  )
+}
+function ImageIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
     </svg>
   )
 }
@@ -221,6 +235,88 @@ function renderMarkdown(md: string) {
   return elements
 }
 
+// --- Proposal Image Component ---
+function ProposalImage({ src, alt }: { src: string | null; alt: string }) {
+  if (!src) return null
+  return (
+    <div style={{ margin: '20px 0', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+      <img src={src} alt={alt}
+        style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+      />
+    </div>
+  )
+}
+
+// --- Markdown Renderer with Images ---
+function renderMarkdownWithImages(md: string, images: ProposalImages) {
+  // Inject image markers into the markdown before rendering
+  const sectionImages: { pattern: RegExp; role: keyof ProposalImages }[] = [
+    { pattern: /^## .*(?:opportunity)/i, role: 'opportunity' },
+    { pattern: /^## .*(?:solution|strategy)/i, role: 'strategy' },
+    { pattern: /^## .*(?:investment|why mazero|results)/i, role: 'results' },
+  ]
+
+  const lines = md.split('\n')
+  const outputLines: string[] = []
+  const injected = new Set<string>()
+
+  for (const line of lines) {
+    // Before adding this line, check if it's a section heading that gets an image
+    for (const mapping of sectionImages) {
+      if (!injected.has(mapping.role) && mapping.pattern.test(line) && images[mapping.role]) {
+        injected.add(mapping.role)
+        outputLines.push(`[PROPOSAL_IMAGE:${mapping.role}:${images[mapping.role]}]`)
+        break
+      }
+    }
+    outputLines.push(line)
+  }
+
+  // Now render, handling image placeholders
+  const elements: React.ReactElement[] = []
+  for (let i = 0; i < outputLines.length; i++) {
+    const line = outputLines[i]
+    const imgMatch = line.match(/^\[PROPOSAL_IMAGE:(\w+):(.*)\]$/)
+    if (imgMatch) {
+      elements.push(
+        <ProposalImage key={`img-${imgMatch[1]}`} src={imgMatch[2]} alt={imgMatch[1]} />
+      )
+    }
+  }
+
+  // Re-render the original markdown and interleave images at the right positions
+  const baseElements = renderMarkdown(md)
+  const result: React.ReactElement[] = []
+  const imageInsertions = new Map<number, React.ReactElement>()
+
+  // Find which line indices get images
+  let lineIndex = 0
+  const injected2 = new Set<string>()
+  for (const line of md.split('\n')) {
+    for (const mapping of sectionImages) {
+      if (!injected2.has(mapping.role) && mapping.pattern.test(line) && images[mapping.role]) {
+        injected2.add(mapping.role)
+        imageInsertions.set(lineIndex, (
+          <ProposalImage key={`img-${mapping.role}`} src={images[mapping.role]} alt={mapping.role} />
+        ))
+        break
+      }
+    }
+    lineIndex++
+  }
+
+  // Map base elements back — each element was created with key={i} where i is the line index
+  for (const el of baseElements) {
+    const elKey = Number(el.key)
+    const img = imageInsertions.get(elKey)
+    if (img) result.push(img)
+    result.push(el)
+  }
+
+  return result
+}
+
 // --- Styles ---
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)',
@@ -267,6 +363,15 @@ const PHASE_CONFIG: Record<ProcessingPhase, { label: string; tasks: string[] }> 
       'Calculating investment tiers',
     ],
   },
+  visuals: {
+    label: 'Generating Visuals',
+    tasks: [
+      'Creating cinematic cover image',
+      'Generating opportunity visual',
+      'Designing strategy illustration',
+      'Producing results imagery',
+    ],
+  },
   design: {
     label: 'Creating Canva Design',
     tasks: [
@@ -287,6 +392,7 @@ export default function ProposalsPage() {
   const [research, setResearch] = useState('')
   const [proposal, setProposal] = useState('')
   const [canvaUrl, setCanvaUrl] = useState<string | null>(null)
+  const [proposalImages, setProposalImages] = useState<ProposalImages>({ cover: null, opportunity: null, strategy: null, results: null })
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -373,7 +479,28 @@ export default function ProposalsPage() {
       return
     }
 
-    // Phase 3: Canva Design (optional, non-blocking)
+    // Phase 3: Generate Visuals (optional, non-blocking)
+    setPhase('visuals')
+    try {
+      const res = await fetch('/api/generate-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName: brief.companyName,
+          industry: brief.industry,
+          services: brief.services,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.images) setProposalImages(data.images)
+      }
+    } catch {
+      // Image generation is optional
+    }
+    setCompletedPhases(['research', 'generate', 'visuals'])
+
+    // Phase 4: Canva Design (optional, non-blocking)
     setPhase('design')
     try {
       const res = await fetch('/api/create-canva-design', {
@@ -390,7 +517,7 @@ export default function ProposalsPage() {
     } catch {
       // Canva is optional
     }
-    setCompletedPhases(['research', 'generate', 'design'])
+    setCompletedPhases(['research', 'generate', 'visuals', 'design'])
     setStep('output')
   }, [brief])
 
@@ -503,6 +630,7 @@ export default function ProposalsPage() {
     setResearch('')
     setProposal('')
     setCanvaUrl(null)
+    setProposalImages({ cover: null, opportunity: null, strategy: null, results: null })
     setChatMessages([])
     setChatInput('')
     setError('')
@@ -710,6 +838,7 @@ export default function ProposalsPage() {
               {[
                 { icon: <SearchIcon />, text: 'Deep research — company, competitors, industry stats' },
                 { icon: <BoltIcon />, text: '11-section proposal with real data and 3 pricing tiers' },
+                { icon: <ImageIcon />, text: '4 AI-generated cinematic visuals tailored to the proposal' },
                 { icon: <CanvaIcon />, text: 'Canva presentation design (if credentials configured)' },
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -750,7 +879,7 @@ export default function ProposalsPage() {
           </div>
 
           <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {(['research', 'generate', 'design'] as ProcessingPhase[]).map((p) => {
+            {(['research', 'generate', 'visuals', 'design'] as ProcessingPhase[]).map((p) => {
               const isDone = completedPhases.includes(p)
               const isCurrent = phase === p && !isDone
               const config = PHASE_CONFIG[p]
@@ -774,7 +903,7 @@ export default function ProposalsPage() {
                       {isDone ? <CheckIcon /> : isCurrent ? (
                         <div style={{ width: '14px', height: '14px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                       ) : (
-                        <span style={{ fontSize: '12px', fontWeight: '700' }}>{p === 'research' ? '1' : p === 'generate' ? '2' : '3'}</span>
+                        <span style={{ fontSize: '12px', fontWeight: '700' }}>{p === 'research' ? '1' : p === 'generate' ? '2' : p === 'visuals' ? '3' : '4'}</span>
                       )}
                     </div>
                     <span style={{
@@ -869,7 +998,19 @@ export default function ProposalsPage() {
 
             {/* Proposal Content */}
             <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px', minHeight: 0 }}>
-              {renderMarkdown(proposal)}
+              {/* Cover Image */}
+              {proposalImages.cover ? (
+                <div style={{ margin: '0 -32px 24px', position: 'relative' }}>
+                  <img src={proposalImages.cover} alt="Proposal cover"
+                    style={{ width: '100%', height: '240px', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(10,10,15,0.85))' }} />
+                </div>
+              ) : proposalImages.cover === null && proposal && (
+                <div style={{ margin: '0 -32px 24px', height: '240px', background: 'linear-gradient(135deg, var(--bg-secondary), rgba(245,166,35,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Cover image unavailable</span>
+                </div>
+              )}
+              {renderMarkdownWithImages(proposal, proposalImages)}
             </div>
           </div>
 
