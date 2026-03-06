@@ -38,7 +38,7 @@ Always maintain the professional, data-backed, persuasive tone. Reference the re
 
     const stream = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
+      max_tokens: 2000,
       system: systemPrompt,
       messages,
       stream: true,
