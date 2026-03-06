@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 120
 
-const HIGGSFIELD_BASE = 'https://cloud.higgsfield.ai'
+const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai'
 const MODEL = 'bytedance/seedream/v4/text-to-image'
 
-type ImageRole = 'cover' | 'opportunity' | 'strategy' | 'results'
+type ImageRole = 'cover' | 'strategy' | 'results'
 
 type ImageRequest = {
   role: ImageRole
@@ -15,14 +15,12 @@ type ImageRequest = {
 function buildAuthHeader(): string | null {
   const key = process.env.HIGGSFIELD_API_KEY
   const secret = process.env.HIGGSFIELD_API_SECRET
-  if (!key) return null
-  // SDK uses "Key KEY_ID:KEY_SECRET" format
-  if (secret) return `Key ${key}:${secret}`
-  return `Bearer ${key}`
+  if (!key || !secret) return null
+  return `Key ${key}:${secret}`
 }
 
-function generatePrompts(companyName: string, industry: string, services: string): ImageRequest[] {
-  const base = `ultra-realistic, cinematic lighting, 4K quality, professional photography`
+function generatePrompts(companyName: string, industry: string): ImageRequest[] {
+  const base = 'ultra-realistic, cinematic lighting, 4K quality, professional photography'
 
   const industryVisuals: Record<string, string> = {
     'E-commerce / Retail': 'modern retail storefront with elegant product displays, warm ambient lighting',
@@ -49,43 +47,42 @@ function generatePrompts(companyName: string, industry: string, services: string
       prompt: `Cinematic hero shot: ${visual}. Brand essence of ${companyName}. Wide angle, dramatic depth of field, ${base}`,
     },
     {
-      role: 'opportunity',
-      prompt: `Visual metaphor for growth and untapped potential: upward trending abstract light trails over a ${industry.toLowerCase()} backdrop, golden hour atmosphere, dynamic composition, ${base}`,
-    },
-    {
       role: 'strategy',
-      prompt: `Strategic planning visualization: modern workspace flat lay with marketing materials, digital screens showing analytics dashboards, ${industry.toLowerCase()} branding elements, bird's eye view, ${base}`,
+      prompt: `Strategic marketing visualization: modern workspace flat lay with marketing materials, digital screens showing analytics dashboards, ${industry.toLowerCase()} branding elements, bird's eye view, ${base}`,
     },
     {
       role: 'results',
-      prompt: `Success and ROI visualization: celebratory business moment, team achievement in premium ${industry.toLowerCase()} setting, warm golden lighting, triumphant atmosphere, ${base}`,
+      prompt: `Success and achievement visualization: upward trending abstract light trails and golden sparks over a ${industry.toLowerCase()} backdrop, triumphant atmosphere, dynamic composition, ${base}`,
     },
   ]
 }
 
 async function submitJob(prompt: string, authHeader: string): Promise<string | null> {
+  const url = `${HIGGSFIELD_BASE}/${MODEL}`
+  const body = { prompt, aspect_ratio: '16:9', resolution: '2K' }
+
+  console.log(`[generate-images] Submitting job to ${url}`)
+  console.log(`[generate-images] Prompt: ${prompt.slice(0, 80)}...`)
+
   try {
-    const res = await fetch(`${HIGGSFIELD_BASE}/${MODEL}`, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: authHeader,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        prompt,
-        aspect_ratio: '16:9',
-        resolution: '2k',
-      }),
+      body: JSON.stringify(body),
     })
 
-    if (!res.ok) {
-      const text = await res.text()
-      console.error(`[generate-images] Submit failed (${res.status}):`, text)
-      return null
-    }
+    const text = await res.text()
+    console.log(`[generate-images] Submit response (${res.status}): ${text.slice(0, 500)}`)
 
-    const data = await res.json()
-    return data.request_id || data.id || null
+    if (!res.ok) return null
+
+    const data = JSON.parse(text)
+    const id = data.request_id || data.id || null
+    console.log(`[generate-images] Job ID: ${id}`)
+    return id
   } catch (err) {
     console.error('[generate-images] Submit error:', err)
     return null
@@ -97,38 +94,43 @@ async function pollJob(requestId: string, authHeader: string): Promise<string | 
   const interval = 3_000
   const start = Date.now()
 
+  console.log(`[generate-images] Polling job ${requestId}...`)
+
   while (Date.now() - start < maxTime) {
     try {
-      const res = await fetch(`${HIGGSFIELD_BASE}/requests/${requestId}/status`, {
+      const url = `${HIGGSFIELD_BASE}/requests/${requestId}/status`
+      const res = await fetch(url, {
         headers: { Authorization: authHeader },
       })
 
-      if (!res.ok) {
-        console.error(`[generate-images] Poll failed (${res.status})`)
-        return null
-      }
+      const text = await res.text()
+      console.log(`[generate-images] Poll ${requestId} (${res.status}): ${text.slice(0, 300)}`)
 
-      const data = await res.json()
+      if (!res.ok) return null
+
+      const data = JSON.parse(text)
 
       if (data.status === 'completed') {
-        // Try multiple response shapes
-        if (data.images?.[0]?.url) return data.images[0].url
-        if (data.output?.url) return data.output.url
-        if (data.result?.url) return data.result.url
-        if (typeof data.output === 'string') return data.output
-        console.error('[generate-images] Completed but no image URL found:', JSON.stringify(data))
-        return null
+        const imageUrl =
+          data.images?.[0]?.url ||
+          data.output?.images?.[0]?.url ||
+          data.output?.url ||
+          data.result?.url ||
+          data.result?.images?.[0]?.url ||
+          (typeof data.output === 'string' ? data.output : null)
+
+        console.log(`[generate-images] Job ${requestId} completed. Image URL: ${imageUrl}`)
+        return imageUrl
       }
 
       if (data.status === 'failed' || data.status === 'nsfw') {
-        console.error(`[generate-images] Job ${requestId} status: ${data.status}`)
+        console.error(`[generate-images] Job ${requestId} terminal status: ${data.status}`)
         return null
       }
 
-      // Still queued or in_progress — wait and retry
       await new Promise((r) => setTimeout(r, interval))
     } catch (err) {
-      console.error('[generate-images] Poll error:', err)
+      console.error(`[generate-images] Poll error for ${requestId}:`, err)
       return null
     }
   }
@@ -140,35 +142,40 @@ async function pollJob(requestId: string, authHeader: string): Promise<string | 
 export async function POST(req: NextRequest) {
   const authHeader = buildAuthHeader()
   if (!authHeader) {
+    console.error('[generate-images] Missing HIGGSFIELD_API_KEY or HIGGSFIELD_API_SECRET')
     return NextResponse.json(
-      { error: 'HIGGSFIELD_API_KEY is not configured' },
+      { error: 'HIGGSFIELD_API_KEY or HIGGSFIELD_API_SECRET not configured' },
       { status: 500 }
     )
   }
 
   try {
-    const { companyName, industry, services } = await req.json()
-    const imageRequests = generatePrompts(companyName, industry, services || '')
+    const { companyName, industry } = await req.json()
+    console.log(`[generate-images] Starting image generation for ${companyName} (${industry})`)
 
-    // Submit all 4 jobs in parallel
+    const imageRequests = generatePrompts(companyName, industry)
+
+    // Submit all 3 jobs in parallel
     const submissions = await Promise.all(
       imageRequests.map((ir) => submitJob(ir.prompt, authHeader))
     )
 
+    console.log(`[generate-images] Submitted jobs:`, submissions)
+
     // Poll all jobs in parallel
     const results = await Promise.all(
-      submissions.map((requestId, i) => {
+      submissions.map((requestId) => {
         if (!requestId) return Promise.resolve(null)
         return pollJob(requestId, authHeader)
       })
     )
 
-    // Build response mapping role -> url
     const images: Record<string, string | null> = {}
     imageRequests.forEach((ir, i) => {
       images[ir.role] = results[i]
     })
 
+    console.log(`[generate-images] Final results:`, images)
     return NextResponse.json({ images })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

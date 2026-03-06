@@ -19,7 +19,6 @@ type Brief = {
 
 type ProposalImages = {
   cover: string | null
-  opportunity: string | null
   strategy: string | null
   results: string | null
 }
@@ -252,7 +251,6 @@ function ProposalImage({ src, alt }: { src: string | null; alt: string }) {
 function renderMarkdownWithImages(md: string, images: ProposalImages) {
   // Inject image markers into the markdown before rendering
   const sectionImages: { pattern: RegExp; role: keyof ProposalImages }[] = [
-    { pattern: /^## .*(?:opportunity)/i, role: 'opportunity' },
     { pattern: /^## .*(?:solution|strategy)/i, role: 'strategy' },
     { pattern: /^## .*(?:investment|why mazero|results)/i, role: 'results' },
   ]
@@ -367,7 +365,6 @@ const PHASE_CONFIG: Record<ProcessingPhase, { label: string; tasks: string[] }> 
     label: 'Generating Visuals',
     tasks: [
       'Creating cinematic cover image',
-      'Generating opportunity visual',
       'Designing strategy illustration',
       'Producing results imagery',
     ],
@@ -392,7 +389,8 @@ export default function ProposalsPage() {
   const [research, setResearch] = useState('')
   const [proposal, setProposal] = useState('')
   const [canvaUrl, setCanvaUrl] = useState<string | null>(null)
-  const [proposalImages, setProposalImages] = useState<ProposalImages>({ cover: null, opportunity: null, strategy: null, results: null })
+  const [proposalImages, setProposalImages] = useState<ProposalImages>({ cover: null, strategy: null, results: null })
+  const [imagesLoading, setImagesLoading] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -479,44 +477,46 @@ export default function ProposalsPage() {
       return
     }
 
-    // Phase 3: Generate Visuals (optional, non-blocking)
+    // Phase 3: Generate Visuals + Phase 4: Canva Design (in parallel)
     setPhase('visuals')
-    try {
-      const res = await fetch('/api/generate-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyName: brief.companyName,
-          industry: brief.industry,
-          services: brief.services,
-        }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.images) setProposalImages(data.images)
-      }
-    } catch {
-      // Image generation is optional
-    }
-    setCompletedPhases(['research', 'generate', 'visuals'])
+    setImagesLoading(true)
 
-    // Phase 4: Canva Design (optional, non-blocking)
-    setPhase('design')
-    try {
-      const res = await fetch('/api/create-canva-design', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyName: brief.companyName,
-          industry: brief.industry,
-          proposalSections: proposalText.slice(0, 500),
-        }),
+    const imagePromise = fetch('/api/generate-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyName: brief.companyName,
+        industry: brief.industry,
+      }),
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json()
+          if (data.images) setProposalImages(data.images)
+        }
       })
-      const data = await res.json()
-      if (data.designUrl) setCanvaUrl(data.designUrl)
-    } catch {
-      // Canva is optional
-    }
+      .catch(() => {})
+      .finally(() => {
+        setImagesLoading(false)
+        setCompletedPhases((prev) => prev.includes('visuals') ? prev : [...prev, 'visuals'])
+      })
+
+    const canvaPromise = fetch('/api/create-canva-design', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyName: brief.companyName,
+        industry: brief.industry,
+        proposalSections: proposalText.slice(0, 500),
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json()
+        if (data.designUrl) setCanvaUrl(data.designUrl)
+      })
+      .catch(() => {})
+
+    await Promise.all([imagePromise, canvaPromise])
     setCompletedPhases(['research', 'generate', 'visuals', 'design'])
     setStep('output')
   }, [brief])
@@ -630,7 +630,8 @@ export default function ProposalsPage() {
     setResearch('')
     setProposal('')
     setCanvaUrl(null)
-    setProposalImages({ cover: null, opportunity: null, strategy: null, results: null })
+    setProposalImages({ cover: null, strategy: null, results: null })
+    setImagesLoading(false)
     setChatMessages([])
     setChatInput('')
     setError('')
@@ -838,7 +839,7 @@ export default function ProposalsPage() {
               {[
                 { icon: <SearchIcon />, text: 'Deep research — company, competitors, industry stats' },
                 { icon: <BoltIcon />, text: '11-section proposal with real data and 3 pricing tiers' },
-                { icon: <ImageIcon />, text: '4 AI-generated cinematic visuals tailored to the proposal' },
+                { icon: <ImageIcon />, text: '3 AI-generated cinematic visuals tailored to the proposal' },
                 { icon: <CanvaIcon />, text: 'Canva presentation design (if credentials configured)' },
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -1002,14 +1003,17 @@ export default function ProposalsPage() {
               {proposalImages.cover ? (
                 <div style={{ margin: '0 -32px 24px', position: 'relative' }}>
                   <img src={proposalImages.cover} alt="Proposal cover"
-                    style={{ width: '100%', height: '240px', objectFit: 'cover', display: 'block' }} />
+                    style={{ width: '100%', height: '240px', objectFit: 'cover', display: 'block' }}
+                    onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(10,10,15,0.85))' }} />
                 </div>
-              ) : proposalImages.cover === null && proposal && (
-                <div style={{ margin: '0 -32px 24px', height: '240px', background: 'linear-gradient(135deg, var(--bg-secondary), rgba(245,166,35,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Cover image unavailable</span>
+              ) : imagesLoading ? (
+                <div style={{ margin: '0 -32px 24px', height: '240px', background: 'linear-gradient(135deg, var(--bg-secondary), rgba(245,166,35,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  <div style={{ width: '16px', height: '16px', border: '2px solid var(--gold)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                  <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Generating visuals...</span>
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                 </div>
-              )}
+              ) : null}
               {renderMarkdownWithImages(proposal, proposalImages)}
             </div>
           </div>
