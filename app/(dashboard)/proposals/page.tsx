@@ -517,14 +517,17 @@ export default function ProposalsPage() {
         const { done, value } = await reader.read()
         if (done) break
         fullResponse += decoder.decode(value, { stream: true })
+        // During streaming, only show text before [PROPOSAL_START] tag
+        const tagIdx = fullResponse.indexOf('[PROPOSAL_START]')
+        const displayText = tagIdx !== -1 ? fullResponse.slice(0, tagIdx).trim() + '\n\n_Updating proposal..._' : fullResponse
         setRefineMessages((prev) => {
           const updated = [...prev]
-          updated[updated.length - 1] = { role: 'assistant', content: fullResponse }
+          updated[updated.length - 1] = { role: 'assistant', content: displayText }
           return updated
         })
       }
 
-      // Extract updated proposal
+      // Extract updated proposal from full response
       const si = fullResponse.indexOf('[PROPOSAL_START]')
       const ei = fullResponse.indexOf('[PROPOSAL_END]')
       if (si !== -1 && ei !== -1) {
@@ -540,7 +543,7 @@ export default function ProposalsPage() {
 
         setRefineMessages((prev) => {
           const updated = [...prev]
-          updated[updated.length - 1] = { role: 'assistant', content: explanation || 'Proposal updated.' }
+          updated[updated.length - 1] = { role: 'assistant', content: (explanation || 'Done!') + '\n\n_Proposal updated successfully._' }
           return updated
         })
       }
