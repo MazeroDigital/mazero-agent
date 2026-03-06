@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
-type Step = 'intake' | 'review' | 'generating' | 'output'
+type Step = 'intake' | 'review' | 'processing' | 'output'
+type ProcessingPhase = 'research' | 'generate' | 'design'
 
 type Brief = {
   companyName: string
   websiteUrl: string
   industry: string
+  socialHandles: string
   currentMarketing: string
   problems: string
   services: string
@@ -24,6 +26,7 @@ const EMPTY_BRIEF: Brief = {
   companyName: '',
   websiteUrl: '',
   industry: '',
+  socialHandles: '',
   currentMarketing: '',
   problems: '',
   services: '',
@@ -59,6 +62,7 @@ const BUDGET_OPTIONS = [
   'To be discussed',
 ]
 
+// --- Icons ---
 function ArrowLeftIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -66,7 +70,13 @@ function ArrowLeftIcon() {
     </svg>
   )
 }
-
+function ArrowRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+    </svg>
+  )
+}
 function SendIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -74,7 +84,6 @@ function SendIcon() {
     </svg>
   )
 }
-
 function DownloadIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -82,7 +91,6 @@ function DownloadIcon() {
     </svg>
   )
 }
-
 function CopyIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -90,7 +98,6 @@ function CopyIcon() {
     </svg>
   )
 }
-
 function CheckIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -98,8 +105,29 @@ function CheckIcon() {
     </svg>
   )
 }
+function CanvaIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="3" /><path d="M8 12h8" /><path d="M12 8v8" />
+    </svg>
+  )
+}
+function SearchIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  )
+}
+function BoltIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  )
+}
 
-// Simple markdown renderer
+// --- Markdown Renderer ---
 function renderMarkdown(md: string) {
   const lines = md.split('\n')
   const elements: React.ReactElement[] = []
@@ -132,19 +160,11 @@ function renderMarkdown(md: string) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-
     if (line.startsWith('# ')) {
       flushList()
       elements.push(
-        <h1 key={i} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', margin: '24px 0 12px', borderBottom: '2px solid var(--gold)', paddingBottom: '8px' }}
+        <h1 key={i} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', margin: '28px 0 12px', borderBottom: '2px solid var(--gold)', paddingBottom: '8px' }}
           dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }}
-        />
-      )
-    } else if (line.startsWith('## ')) {
-      flushList()
-      elements.push(
-        <h2 key={i} style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text-primary)', margin: '20px 0 8px' }}
-          dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(3)) }}
         />
       )
     } else if (line.startsWith('### ')) {
@@ -152,6 +172,13 @@ function renderMarkdown(md: string) {
       elements.push(
         <h3 key={i} style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-secondary)', margin: '16px 0 6px' }}
           dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(4)) }}
+        />
+      )
+    } else if (line.startsWith('## ')) {
+      flushList()
+      elements.push(
+        <h2 key={i} style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text-primary)', margin: '24px 0 8px' }}
+          dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(3)) }}
         />
       )
     } else if (/^[-*]\s/.test(line)) {
@@ -163,13 +190,22 @@ function renderMarkdown(md: string) {
     } else if (line.startsWith('> ')) {
       flushList()
       elements.push(
-        <blockquote key={i} style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '14px', margin: '8px 0', color: 'var(--text-secondary)', fontStyle: 'italic' }}
+        <blockquote key={i} style={{
+          borderLeft: '3px solid var(--gold)',
+          paddingLeft: '16px',
+          margin: '12px 0',
+          color: 'var(--text-secondary)',
+          fontStyle: 'italic',
+          background: 'var(--gold-light)',
+          padding: '12px 16px 12px 20px',
+          borderRadius: '0 8px 8px 0',
+        }}
           dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }}
         />
       )
     } else if (line.startsWith('---')) {
       flushList()
-      elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '16px 0' }} />)
+      elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />)
     } else if (line.trim() === '') {
       flushList()
     } else {
@@ -185,60 +221,103 @@ function renderMarkdown(md: string) {
   return elements
 }
 
+// --- Styles ---
 const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '12px',
-  fontWeight: '700',
-  color: 'var(--text-secondary)',
-  marginBottom: '8px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+  display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)',
+  marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em',
 }
+const hintStyle: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }
 
-const hintStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: 'var(--text-muted)',
-  marginTop: '4px',
-}
-
-const stepIndicatorStyle = (active: boolean, done: boolean): React.CSSProperties => ({
-  width: '32px',
-  height: '32px',
-  borderRadius: '50%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '13px',
-  fontWeight: '700',
+const stepDotStyle = (active: boolean, done: boolean): React.CSSProperties => ({
+  width: '32px', height: '32px', borderRadius: '50%', display: 'flex',
+  alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '700',
   background: done ? 'var(--gold)' : active ? 'rgba(245,166,35,0.15)' : 'var(--bg-secondary)',
   color: done ? '#0a0a0f' : active ? 'var(--gold)' : 'var(--text-muted)',
   border: active ? '2px solid var(--gold)' : '2px solid transparent',
-  transition: 'all 0.2s ease',
-  flexShrink: 0,
+  transition: 'all 0.3s ease', flexShrink: 0,
 })
 
-const stepLabelStyle = (active: boolean): React.CSSProperties => ({
-  fontSize: '12px',
-  fontWeight: active ? '700' : '500',
+const stepTextStyle = (active: boolean): React.CSSProperties => ({
+  fontSize: '12px', fontWeight: active ? '700' : '500',
   color: active ? 'var(--text-primary)' : 'var(--text-muted)',
   transition: 'color 0.2s ease',
 })
 
+// --- Processing Phase Config ---
+const PHASE_CONFIG: Record<ProcessingPhase, { label: string; tasks: string[] }> = {
+  research: {
+    label: 'Deep Research',
+    tasks: [
+      'Searching for company information & news',
+      'Identifying top competitors',
+      'Analyzing competitor marketing strategies',
+      'Finding industry statistics & trends',
+      'Assessing digital presence',
+      'Compiling research brief',
+    ],
+  },
+  generate: {
+    label: 'Crafting Proposal',
+    tasks: [
+      'Writing executive summary',
+      'Building opportunity analysis with research data',
+      'Formatting competitor breakdown',
+      'Creating content strategy ideas',
+      'Structuring deliverables & roadmap',
+      'Calculating investment tiers',
+    ],
+  },
+  design: {
+    label: 'Creating Canva Design',
+    tasks: [
+      'Selecting industry color scheme',
+      'Generating presentation slides',
+      'Applying Mazero branding',
+    ],
+  },
+}
+
+// --- Main Component ---
 export default function ProposalsPage() {
   const [step, setStep] = useState<Step>('intake')
+  const [phase, setPhase] = useState<ProcessingPhase>('research')
+  const [phaseTaskIndex, setPhaseTaskIndex] = useState(0)
+  const [completedPhases, setCompletedPhases] = useState<ProcessingPhase[]>([])
   const [brief, setBrief] = useState<Brief>(EMPTY_BRIEF)
+  const [research, setResearch] = useState('')
   const [proposal, setProposal] = useState('')
+  const [canvaUrl, setCanvaUrl] = useState<string | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [showResearch, setShowResearch] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const proposalRef = useRef<HTMLDivElement>(null)
+  const taskTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
+
+  // Animate task progress during processing
+  useEffect(() => {
+    if (step !== 'processing') {
+      if (taskTimerRef.current) clearInterval(taskTimerRef.current)
+      return
+    }
+    const tasks = PHASE_CONFIG[phase].tasks
+    setPhaseTaskIndex(0)
+    taskTimerRef.current = setInterval(() => {
+      setPhaseTaskIndex((prev) => {
+        if (prev < tasks.length - 1) return prev + 1
+        return prev
+      })
+    }, 3500)
+    return () => {
+      if (taskTimerRef.current) clearInterval(taskTimerRef.current)
+    }
+  }, [step, phase])
 
   function updateBrief(field: keyof Brief, value: string) {
     setBrief((b) => ({ ...b, [field]: value }))
@@ -249,27 +328,71 @@ export default function ProposalsPage() {
     setStep('review')
   }
 
-  async function generateProposal() {
-    setStep('generating')
+  const startBuild = useCallback(async () => {
+    setStep('processing')
     setError('')
+    setCompletedPhases([])
+
+    // Phase 1: Research
+    setPhase('research')
+    let researchText = ''
     try {
-      const res = await fetch('/api/generate-proposal', {
+      const res = await fetch('/api/research-prospect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(brief),
       })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Generation failed')
-      }
+      if (!res.ok) throw new Error((await res.json()).error || 'Research failed')
       const data = await res.json()
-      setProposal(data.proposal)
-      setStep('output')
+      researchText = data.research
+      setResearch(researchText)
+      setCompletedPhases(['research'])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : 'Research failed')
       setStep('review')
+      return
     }
-  }
+
+    // Phase 2: Generate Proposal
+    setPhase('generate')
+    let proposalText = ''
+    try {
+      const res = await fetch('/api/generate-proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brief, research: researchText }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Generation failed')
+      const data = await res.json()
+      proposalText = data.proposal
+      setProposal(proposalText)
+      setCompletedPhases(['research', 'generate'])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Generation failed')
+      setStep('review')
+      return
+    }
+
+    // Phase 3: Canva Design (optional, non-blocking)
+    setPhase('design')
+    try {
+      const res = await fetch('/api/create-canva-design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName: brief.companyName,
+          industry: brief.industry,
+          proposalSections: proposalText.slice(0, 500),
+        }),
+      })
+      const data = await res.json()
+      if (data.designUrl) setCanvaUrl(data.designUrl)
+    } catch {
+      // Canva is optional
+    }
+    setCompletedPhases(['research', 'generate', 'design'])
+    setStep('output')
+  }, [brief])
 
   async function sendChatMessage(e: React.FormEvent) {
     e.preventDefault()
@@ -288,9 +411,9 @@ export default function ProposalsPage() {
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           currentProposal: proposal,
+          research,
         }),
       })
-
       if (!res.ok) throw new Error('Failed to get response')
 
       const reader = res.body?.getReader()
@@ -298,14 +421,12 @@ export default function ProposalsPage() {
 
       let fullResponse = ''
       const decoder = new TextDecoder()
-
       setChatMessages((prev) => [...prev, { role: 'assistant', content: '' }])
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        fullResponse += chunk
+        fullResponse += decoder.decode(value, { stream: true })
         setChatMessages((prev) => {
           const updated = [...prev]
           updated[updated.length - 1] = { role: 'assistant', content: fullResponse }
@@ -313,29 +434,24 @@ export default function ProposalsPage() {
         })
       }
 
-      // Check if the response contains an updated proposal
+      // Extract updated proposal if present
       const startTag = '[PROPOSAL_START]'
       const endTag = '[PROPOSAL_END]'
-      const startIdx = fullResponse.indexOf(startTag)
-      const endIdx = fullResponse.indexOf(endTag)
-      if (startIdx !== -1 && endIdx !== -1) {
-        const updatedProposal = fullResponse.slice(startIdx + startTag.length, endIdx).trim()
-        setProposal(updatedProposal)
-        // Clean the chat message to just show the explanation
-        const explanation = fullResponse.slice(0, startIdx).trim()
+      const si = fullResponse.indexOf(startTag)
+      const ei = fullResponse.indexOf(endTag)
+      if (si !== -1 && ei !== -1) {
+        setProposal(fullResponse.slice(si + startTag.length, ei).trim())
+        const explanation = fullResponse.slice(0, si).trim()
         setChatMessages((prev) => {
           const updated = [...prev]
-          updated[updated.length - 1] = {
-            role: 'assistant',
-            content: explanation || 'Proposal updated.',
-          }
+          updated[updated.length - 1] = { role: 'assistant', content: explanation || 'Proposal updated.' }
           return updated
         })
       }
     } catch {
       setChatMessages((prev) => [
         ...prev.slice(0, -1),
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
+        { role: 'assistant', content: 'Something went wrong. Please try again.' },
       ])
     } finally {
       setChatLoading(false)
@@ -349,62 +465,70 @@ export default function ProposalsPage() {
   }
 
   function downloadPDF() {
-    // Create a printable HTML document and trigger print-to-PDF
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Proposal - ${brief.companyName}</title>
-        <style>
-          body { font-family: 'Segoe UI', -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 40px; color: #1a1a2e; line-height: 1.7; }
-          h1 { font-size: 26px; border-bottom: 3px solid #f5a623; padding-bottom: 10px; margin-top: 30px; }
-          h2 { font-size: 20px; margin-top: 28px; color: #2d2d44; }
-          h3 { font-size: 16px; margin-top: 20px; color: #4a4a6a; }
-          p { margin: 8px 0; }
-          ul, ol { padding-left: 24px; }
-          li { margin-bottom: 6px; }
-          blockquote { border-left: 3px solid #f5a623; padding-left: 16px; margin: 12px 0; color: #555; }
-          hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
-          @media print { body { margin: 20px; } }
-        </style>
-      </head>
-      <body>${proposal.replace(/\n/g, '<br>')}</body>
-      </html>
-    `)
-    printWindow.document.close()
-    printWindow.print()
+    const w = window.open('', '_blank')
+    if (!w) return
+    // Convert markdown to basic HTML for print
+    const htmlBody = proposal
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^\> (.+)$/gm, '<blockquote>$1</blockquote>')
+      .replace(/^\- (.+)$/gm, '<li>$1</li>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^---$/gm, '<hr>')
+      .replace(/\n/g, '<br>')
+    w.document.write(`<!DOCTYPE html><html><head>
+      <title>Proposal — ${brief.companyName} | Mazero Digital</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 40px; color: #1a1a2e; line-height: 1.7; font-size: 14px; }
+        h1 { font-size: 28px; font-weight: 800; border-bottom: 3px solid #f5a623; padding-bottom: 10px; margin-top: 32px; }
+        h2 { font-size: 20px; font-weight: 700; margin-top: 28px; color: #2d2d44; }
+        h3 { font-size: 16px; font-weight: 700; margin-top: 20px; color: #4a4a6a; }
+        p, li { margin: 8px 0; }
+        ul, ol { padding-left: 24px; }
+        blockquote { border-left: 3px solid #f5a623; background: #fff8eb; padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; }
+        hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+        strong { font-weight: 700; }
+        @media print { body { margin: 20px; } }
+      </style>
+    </head><body>${htmlBody}</body></html>`)
+    w.document.close()
+    w.print()
   }
 
   function startOver() {
     setBrief(EMPTY_BRIEF)
+    setResearch('')
     setProposal('')
+    setCanvaUrl(null)
     setChatMessages([])
     setChatInput('')
     setError('')
+    setShowResearch(false)
     setStep('intake')
   }
 
-  const steps = [
+  const STEPS = [
     { key: 'intake', label: 'Brief' },
     { key: 'review', label: 'Review' },
-    { key: 'generating', label: 'Generate' },
+    { key: 'processing', label: 'Build' },
     { key: 'output', label: 'Proposal' },
   ]
-  const stepIndex = steps.findIndex((s) => s.key === step)
+  const stepIndex = STEPS.findIndex((s) => s.key === step)
 
   return (
-    <div className="animate-fadeIn" style={{ maxWidth: step === 'output' ? '100%' : '720px', margin: '0 auto' }}>
+    <div className="animate-fadeIn" style={{ maxWidth: step === 'output' ? '100%' : '760px', margin: '0 auto', transition: 'max-width 0.3s ease' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)' }}>Proposal Builder</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
-            Craft AI-powered proposals tailored to your prospects.
+            Research-backed, AI-powered proposals with Canva design.
           </p>
         </div>
-        {step !== 'intake' && (
+        {step !== 'intake' && step !== 'processing' && (
           <button onClick={startOver} className="btn-ghost" style={{ fontSize: '12px' }}>
             <ArrowLeftIcon /> Start Over
           </button>
@@ -412,31 +536,27 @@ export default function ProposalsPage() {
       </div>
 
       {/* Step Indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0', marginBottom: '32px' }}>
-        {steps.map((s, i) => (
-          <div key={s.key} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
+        {STEPS.map((s, i) => (
+          <div key={s.key} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-              <div style={stepIndicatorStyle(i === stepIndex, i < stepIndex)}>
+              <div style={stepDotStyle(i === stepIndex, i < stepIndex)}>
                 {i < stepIndex ? <CheckIcon /> : i + 1}
               </div>
-              <span style={stepLabelStyle(i === stepIndex)}>{s.label}</span>
+              <span style={stepTextStyle(i === stepIndex)}>{s.label}</span>
             </div>
-            {i < steps.length - 1 && (
+            {i < STEPS.length - 1 && (
               <div style={{
-                flex: 1,
-                height: '2px',
+                flex: 1, height: '2px', margin: '0 12px', marginBottom: '24px', borderRadius: '1px',
                 background: i < stepIndex ? 'var(--gold)' : 'var(--border)',
-                margin: '0 12px',
-                marginBottom: '24px',
-                borderRadius: '1px',
-                transition: 'background 0.3s ease',
+                transition: 'background 0.4s ease',
               }} />
             )}
           </div>
         ))}
       </div>
 
-      {/* STEP 1: INTAKE FORM */}
+      {/* ═══════ STEP 1: INTAKE FORM ═══════ */}
       {step === 'intake' && (
         <form onSubmit={handleIntakeSubmit}>
           <div className="card" style={{ padding: '32px', borderRadius: '16px' }}>
@@ -445,7 +565,7 @@ export default function ProposalsPage() {
                 Client Brief
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                Fill in the details below. The more context you provide, the better the proposal.
+                The more detail you provide, the more tailored the proposal. Our AI will research the prospect before generating.
               </p>
             </div>
 
@@ -453,132 +573,91 @@ export default function ProposalsPage() {
               {/* Company Name */}
               <div>
                 <label style={labelStyle}>Prospect Company Name *</label>
-                <input
-                  className="input-field"
-                  value={brief.companyName}
-                  onChange={(e) => updateBrief('companyName', e.target.value)}
-                  placeholder="e.g. Bloom Skincare Co."
-                  required
-                />
+                <input className="input-field" value={brief.companyName} onChange={(e) => updateBrief('companyName', e.target.value)}
+                  placeholder="e.g. Bloom Skincare Co." required />
               </div>
 
-              {/* Two columns: Website + Industry */}
+              {/* Website + Industry */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={labelStyle}>Website URL</label>
-                  <input
-                    className="input-field"
-                    value={brief.websiteUrl}
-                    onChange={(e) => updateBrief('websiteUrl', e.target.value)}
-                    placeholder="https://..."
-                    type="url"
-                  />
-                  <p style={hintStyle}>Optional but helps with context</p>
+                  <input className="input-field" value={brief.websiteUrl} onChange={(e) => updateBrief('websiteUrl', e.target.value)}
+                    placeholder="https://..." type="url" />
+                  <p style={hintStyle}>Helps our AI research their brand</p>
                 </div>
                 <div>
                   <label style={labelStyle}>Industry *</label>
-                  <select
-                    className="input-field"
-                    value={brief.industry}
-                    onChange={(e) => updateBrief('industry', e.target.value)}
-                    required
-                    style={{ appearance: 'none', cursor: 'pointer' }}
-                  >
+                  <select className="input-field" value={brief.industry} onChange={(e) => updateBrief('industry', e.target.value)}
+                    required style={{ appearance: 'none', cursor: 'pointer' }}>
                     <option value="">Select industry...</option>
-                    {INDUSTRY_OPTIONS.map((ind) => (
-                      <option key={ind} value={ind}>{ind}</option>
-                    ))}
+                    {INDUSTRY_OPTIONS.map((ind) => <option key={ind} value={ind}>{ind}</option>)}
                   </select>
                 </div>
+              </div>
+
+              {/* Social Handles */}
+              <div>
+                <label style={labelStyle}>Social Media Handles</label>
+                <input className="input-field" value={brief.socialHandles} onChange={(e) => updateBrief('socialHandles', e.target.value)}
+                  placeholder="e.g. @bloomskincare on Instagram, @bloom_skin on TikTok" />
+                <p style={hintStyle}>Our AI will analyze their social presence during research</p>
               </div>
 
               {/* Current Marketing */}
               <div>
                 <label style={labelStyle}>Current Marketing Efforts</label>
-                <textarea
-                  className="input-field"
-                  value={brief.currentMarketing}
-                  onChange={(e) => updateBrief('currentMarketing', e.target.value)}
+                <textarea className="input-field" value={brief.currentMarketing} onChange={(e) => updateBrief('currentMarketing', e.target.value)}
                   placeholder="What are they doing now? e.g. 'Posting on Instagram 2x/week, running basic Google Ads, no email marketing...'"
-                  rows={3}
-                  style={{ resize: 'vertical' }}
-                />
+                  rows={3} style={{ resize: 'vertical' }} />
                 <p style={hintStyle}>What do they currently do for marketing, if known?</p>
               </div>
 
               {/* Problems / Gaps */}
               <div>
                 <label style={labelStyle}>Problems & Gaps You Noticed</label>
-                <textarea
-                  className="input-field"
-                  value={brief.problems}
-                  onChange={(e) => updateBrief('problems', e.target.value)}
+                <textarea className="input-field" value={brief.problems} onChange={(e) => updateBrief('problems', e.target.value)}
                   placeholder="e.g. 'No consistent brand voice, low engagement rates, website isn't converting, no video content...'"
-                  rows={3}
-                  style={{ resize: 'vertical' }}
-                />
-                <p style={hintStyle}>What gaps or opportunities did you identify?</p>
+                  rows={3} style={{ resize: 'vertical' }} />
               </div>
 
               {/* Services to Pitch */}
               <div>
                 <label style={labelStyle}>Services You Want to Pitch *</label>
-                <textarea
-                  className="input-field"
-                  value={brief.services}
-                  onChange={(e) => updateBrief('services', e.target.value)}
-                  placeholder="e.g. 'Social media management (Instagram + TikTok), content creation (4 reels/month + 12 static posts), brand strategy refresh...'"
-                  rows={3}
-                  style={{ resize: 'vertical' }}
-                  required
-                />
+                <textarea className="input-field" value={brief.services} onChange={(e) => updateBrief('services', e.target.value)}
+                  placeholder="e.g. 'Social media management (IG + TikTok), content creation (4 reels/month + 12 static), brand strategy refresh...'"
+                  rows={3} style={{ resize: 'vertical' }} required />
               </div>
 
-              {/* Two columns: Budget + Notes */}
+              {/* Budget + Notes */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={labelStyle}>Budget Range</label>
-                  <select
-                    className="input-field"
-                    value={brief.budget}
-                    onChange={(e) => updateBrief('budget', e.target.value)}
-                    style={{ appearance: 'none', cursor: 'pointer' }}
-                  >
+                  <select className="input-field" value={brief.budget} onChange={(e) => updateBrief('budget', e.target.value)}
+                    style={{ appearance: 'none', cursor: 'pointer' }}>
                     <option value="">Select range...</option>
-                    {BUDGET_OPTIONS.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
+                    {BUDGET_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
                   </select>
                   <p style={hintStyle}>If known or discussed</p>
                 </div>
                 <div>
                   <label style={labelStyle}>Additional Notes</label>
-                  <textarea
-                    className="input-field"
-                    value={brief.notes}
-                    onChange={(e) => updateBrief('notes', e.target.value)}
-                    placeholder="Anything else relevant..."
-                    rows={3}
-                    style={{ resize: 'vertical' }}
-                  />
+                  <textarea className="input-field" value={brief.notes} onChange={(e) => updateBrief('notes', e.target.value)}
+                    placeholder="Decision maker name, timeline, special requirements..."
+                    rows={3} style={{ resize: 'vertical' }} />
                 </div>
               </div>
             </div>
 
-            {/* Submit */}
             <div style={{ marginTop: '28px', display: 'flex', justifyContent: 'flex-end' }}>
               <button type="submit" className="btn-gold" style={{ padding: '12px 28px', fontSize: '14px' }}>
-                Review Brief
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-                </svg>
+                Review Brief <ArrowRightIcon />
               </button>
             </div>
           </div>
         </form>
       )}
 
-      {/* STEP 2: REVIEW */}
+      {/* ═══════ STEP 2: REVIEW ═══════ */}
       {step === 'review' && (
         <div className="card" style={{ padding: '32px', borderRadius: '16px' }}>
           <div style={{ marginBottom: '28px' }}>
@@ -586,30 +665,50 @@ export default function ProposalsPage() {
               Review Your Brief
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-              Make sure everything looks right before generating the proposal.
+              Confirm the details. Our AI will research the prospect, generate an 11-section proposal, and create a Canva design.
             </p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[
               { label: 'Prospect', value: brief.companyName },
-              { label: 'Website', value: brief.websiteUrl || 'Not provided' },
+              { label: 'Website', value: brief.websiteUrl || '—' },
               { label: 'Industry', value: brief.industry },
-              { label: 'Current Marketing', value: brief.currentMarketing || 'Not provided' },
-              { label: 'Problems & Gaps', value: brief.problems || 'Not provided' },
+              { label: 'Social Handles', value: brief.socialHandles || '—' },
+              { label: 'Current Marketing', value: brief.currentMarketing || '—' },
+              { label: 'Problems & Gaps', value: brief.problems || '—' },
               { label: 'Services to Pitch', value: brief.services },
               { label: 'Budget Range', value: brief.budget || 'Not specified' },
-              { label: 'Additional Notes', value: brief.notes || 'None' },
+              { label: 'Notes', value: brief.notes || '—' },
             ].map((item) => (
-              <div key={item.label} style={{ display: 'flex', gap: '16px', padding: '14px 16px', background: 'var(--bg-secondary)', borderRadius: '10px' }}>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', minWidth: '140px', flexShrink: 0, paddingTop: '2px' }}>
+              <div key={item.label} style={{ display: 'flex', gap: '16px', padding: '12px 16px', background: 'var(--bg-secondary)', borderRadius: '10px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', minWidth: '130px', flexShrink: 0, paddingTop: '2px' }}>
                   {item.label}
                 </span>
-                <span style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                <span style={{ fontSize: '14px', color: item.value === '—' ? 'var(--text-muted)' : 'var(--text-primary)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
                   {item.value}
                 </span>
               </div>
             ))}
+          </div>
+
+          {/* What will happen */}
+          <div style={{ marginTop: '24px', padding: '16px', background: 'var(--gold-light)', border: '1px solid var(--gold-border)', borderRadius: '12px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>
+              What happens next:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {[
+                { icon: <SearchIcon />, text: 'Deep research — company, competitors, industry stats' },
+                { icon: <BoltIcon />, text: '11-section proposal with real data and 3 pricing tiers' },
+                { icon: <CanvaIcon />, text: 'Canva presentation design (if credentials configured)' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  <span style={{ color: 'var(--gold)', flexShrink: 0 }}>{item.icon}</span>
+                  {item.text}
+                </div>
+              ))}
+            </div>
           </div>
 
           {error && (
@@ -622,141 +721,198 @@ export default function ProposalsPage() {
             <button onClick={() => setStep('intake')} className="btn-ghost">
               <ArrowLeftIcon /> Edit Brief
             </button>
-            <button onClick={generateProposal} className="btn-gold" style={{ padding: '12px 28px', fontSize: '14px' }}>
-              Generate Proposal
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
+            <button onClick={startBuild} className="btn-gold" style={{ padding: '12px 28px', fontSize: '14px' }}>
+              Research & Generate <BoltIcon />
             </button>
           </div>
         </div>
       )}
 
-      {/* STEP 3: GENERATING */}
-      {step === 'generating' && (
-        <div className="card" style={{ padding: '60px 32px', borderRadius: '16px', textAlign: 'center' }}>
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              background: 'rgba(245,166,35,0.1)',
-              border: '3px solid var(--gold)',
-              borderTopColor: 'transparent',
-              margin: '0 auto 20px',
-              animation: 'spin 0.8s linear infinite',
-            }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>
-              Crafting your proposal...
+      {/* ═══════ STEP 3: PROCESSING ═══════ */}
+      {step === 'processing' && (
+        <div className="card" style={{ padding: '48px 32px', borderRadius: '16px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '6px' }}>
+              Building Your Proposal
             </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '400px', margin: '0 auto' }}>
-              Our AI is building a tailored proposal for {brief.companyName}. This usually takes 15-30 seconds.
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+              for <span style={{ color: 'var(--gold)', fontWeight: '700' }}>{brief.companyName}</span>
             </p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '300px', margin: '0 auto' }}>
-            {['Analyzing industry context', 'Structuring deliverables', 'Writing proposal sections', 'Finalizing investment details'].map((task, i) => (
-              <div key={task} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '8px 12px',
-                fontSize: '13px',
-                color: 'var(--text-muted)',
-                animation: `fadeIn 0.3s ease ${i * 0.3}s both`,
-              }}>
-                <div className="typing-dot" style={{ animationDelay: `${i * 0.15}s` }} />
-                {task}
-              </div>
-            ))}
+          <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {(['research', 'generate', 'design'] as ProcessingPhase[]).map((p) => {
+              const isDone = completedPhases.includes(p)
+              const isCurrent = phase === p && !isDone
+              const config = PHASE_CONFIG[p]
+
+              return (
+                <div key={p} style={{
+                  padding: '20px',
+                  borderRadius: '14px',
+                  background: isDone ? 'rgba(76,175,125,0.06)' : isCurrent ? 'var(--bg-secondary)' : 'transparent',
+                  border: `1px solid ${isDone ? 'rgba(76,175,125,0.2)' : isCurrent ? 'var(--gold-border)' : 'var(--border)'}`,
+                  transition: 'all 0.3s ease',
+                }}>
+                  {/* Phase Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isCurrent ? '14px' : '0' }}>
+                    <div style={{
+                      width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: isDone ? '#4caf7d' : isCurrent ? 'var(--gold)' : 'var(--bg-secondary)',
+                      color: isDone || isCurrent ? '#fff' : 'var(--text-muted)',
+                      flexShrink: 0,
+                    }}>
+                      {isDone ? <CheckIcon /> : isCurrent ? (
+                        <div style={{ width: '14px', height: '14px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                      ) : (
+                        <span style={{ fontSize: '12px', fontWeight: '700' }}>{p === 'research' ? '1' : p === 'generate' ? '2' : '3'}</span>
+                      )}
+                    </div>
+                    <span style={{
+                      fontSize: '14px', fontWeight: '700',
+                      color: isDone ? '#4caf7d' : isCurrent ? 'var(--text-primary)' : 'var(--text-muted)',
+                    }}>
+                      {config.label}
+                      {isDone && <span style={{ fontWeight: '500', marginLeft: '8px' }}>Complete</span>}
+                    </span>
+                  </div>
+
+                  {/* Animated Tasks (only for current phase) */}
+                  {isCurrent && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '40px' }}>
+                      {config.tasks.map((task, ti) => (
+                        <div key={ti} style={{
+                          display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px',
+                          color: ti < phaseTaskIndex ? '#4caf7d' : ti === phaseTaskIndex ? 'var(--text-primary)' : 'var(--text-muted)',
+                          opacity: ti <= phaseTaskIndex ? 1 : 0.4,
+                          transition: 'all 0.3s ease',
+                        }}>
+                          {ti < phaseTaskIndex ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4caf7d" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          ) : ti === phaseTaskIndex ? (
+                            <div className="typing-dot" style={{ width: '5px', height: '5px' }} />
+                          ) : (
+                            <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.3 }} />
+                          )}
+                          {task}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
+
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
 
-      {/* STEP 4: OUTPUT (Split Screen) */}
+      {/* ═══════ STEP 4: OUTPUT ═══════ */}
       {step === 'output' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '20px', height: 'calc(100vh - 220px)', minHeight: '500px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '16px', height: 'calc(100vh - 210px)', minHeight: '500px' }}>
           {/* Left: Proposal */}
           <div className="card" style={{ borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Toolbar */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 20px',
-              borderBottom: '1px solid var(--border)',
-              background: 'var(--bg-secondary)',
-              flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', flexShrink: 0,
             }}>
               <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                Proposal for {brief.companyName}
+                {brief.companyName}
               </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={copyToClipboard} className="btn-ghost" style={{ padding: '7px 14px', fontSize: '12px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button onClick={() => setShowResearch(!showResearch)} className="btn-ghost"
+                  style={{ padding: '6px 12px', fontSize: '11px', background: showResearch ? 'var(--gold-light)' : undefined, color: showResearch ? 'var(--gold)' : undefined }}>
+                  <SearchIcon /> Research
+                </button>
+                <button onClick={copyToClipboard} className="btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>
                   {copied ? <><CheckIcon /> Copied</> : <><CopyIcon /> Copy</>}
                 </button>
-                <button onClick={downloadPDF} className="btn-gold" style={{ padding: '7px 14px', fontSize: '12px' }}>
+                <button onClick={downloadPDF} className="btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>
                   <DownloadIcon /> PDF
                 </button>
+                {canvaUrl && (
+                  <a href={canvaUrl} target="_blank" rel="noopener noreferrer" className="btn-gold" style={{ padding: '6px 12px', fontSize: '11px', textDecoration: 'none' }}>
+                    <CanvaIcon /> Open in Canva
+                  </a>
+                )}
               </div>
             </div>
 
+            {/* Research Panel (collapsible) */}
+            {showResearch && research && (
+              <div style={{
+                borderBottom: '1px solid var(--border)', padding: '20px 24px',
+                background: 'var(--bg-secondary)', maxHeight: '40vh', overflow: 'auto',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                    Research Brief
+                  </h3>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--surface)', padding: '3px 10px', borderRadius: '20px', border: '1px solid var(--border)' }}>
+                    Live data from web research
+                  </span>
+                </div>
+                <div style={{ fontSize: '13px' }}>{renderMarkdown(research)}</div>
+              </div>
+            )}
+
             {/* Proposal Content */}
-            <div ref={proposalRef} style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}>
               {renderMarkdown(proposal)}
             </div>
           </div>
 
           {/* Right: Chat */}
           <div className="card" style={{ borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Chat Header */}
-            <div style={{
-              padding: '14px 20px',
-              borderBottom: '1px solid var(--border)',
-              background: 'var(--bg-secondary)',
-              flexShrink: 0,
-            }}>
-              <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                Refine Proposal
-              </span>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Ask to edit any section
-              </p>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', flexShrink: 0 }}>
+              <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Refine Proposal</span>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Edit any section with AI</p>
             </div>
 
-            {/* Messages */}
-            <div style={{ flex: 1, overflow: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {chatMessages.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '40px 16px' }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6' }}>
-                    Try things like:<br />
-                    <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>"Make the pricing more aggressive"</span><br />
-                    <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>"Add more about video content"</span><br />
-                    <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>"Rewrite the executive summary"</span>
+                <div style={{ padding: '32px 12px', textAlign: 'center' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', marginBottom: '16px' }}>
+                    Ask to edit any section:
                   </p>
+                  {[
+                    '"Make the pricing more aggressive"',
+                    '"Add a case study reference"',
+                    '"Rewrite the executive summary"',
+                    '"Add more about video content"',
+                    '"Change the 90-day roadmap to 60 days"',
+                  ].map((hint) => (
+                    <button key={hint} onClick={() => { setChatInput(hint.replace(/"/g, '')); }}
+                      style={{
+                        display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', marginBottom: '6px',
+                        background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px',
+                        color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={(e) => { (e.target as HTMLElement).style.borderColor = 'var(--gold-border)' }}
+                      onMouseLeave={(e) => { (e.target as HTMLElement).style.borderColor = 'var(--border)' }}
+                    >
+                      {hint}
+                    </button>
+                  ))}
                 </div>
               )}
               {chatMessages.map((msg, i) => (
-                <div
-                  key={i}
-                  style={{
-                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '90%',
-                    padding: '10px 14px',
-                    borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                    background: msg.role === 'user' ? 'var(--user-bubble)' : 'var(--bg-secondary)',
-                    color: msg.role === 'user' ? '#f1f5f9' : 'var(--text-primary)',
-                    fontSize: '13px',
-                    lineHeight: '1.6',
-                    border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-                  }}
-                >
+                <div key={i} style={{
+                  alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  maxWidth: '90%', padding: '10px 14px',
+                  borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                  background: msg.role === 'user' ? 'var(--user-bubble)' : 'var(--bg-secondary)',
+                  color: msg.role === 'user' ? '#f1f5f9' : 'var(--text-primary)',
+                  fontSize: '13px', lineHeight: '1.6',
+                  border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
+                  whiteSpace: 'pre-wrap',
+                }}>
                   {msg.content || (
                     <div style={{ display: 'flex', gap: '4px', padding: '4px 0' }}>
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
+                      <div className="typing-dot" /><div className="typing-dot" /><div className="typing-dot" />
                     </div>
                   )}
                 </div>
@@ -764,22 +920,11 @@ export default function ProposalsPage() {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input */}
-            <form onSubmit={sendChatMessage} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
-              <input
-                className="input-field"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Refine the proposal..."
-                disabled={chatLoading}
-                style={{ flex: 1, fontSize: '13px', padding: '10px 14px' }}
-              />
-              <button
-                type="submit"
-                disabled={chatLoading || !chatInput.trim()}
-                className="btn-gold"
-                style={{ padding: '10px 14px', flexShrink: 0 }}
-              >
+            <form onSubmit={sendChatMessage} style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <input className="input-field" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Refine the proposal..." disabled={chatLoading}
+                style={{ flex: 1, fontSize: '13px', padding: '10px 14px' }} />
+              <button type="submit" disabled={chatLoading || !chatInput.trim()} className="btn-gold" style={{ padding: '10px 14px', flexShrink: 0 }}>
                 <SendIcon />
               </button>
             </form>

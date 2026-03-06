@@ -13,13 +13,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { messages, currentProposal } = await req.json()
+    const { messages, currentProposal, research } = await req.json()
 
     const systemPrompt = `You are a senior marketing strategist at Mazero Digital Marketing Agency helping refine a proposal. Here is the current proposal:
 
 ---
 ${currentProposal}
 ---
+
+${research ? `Here is the research that was used to create this proposal:\n---\n${research}\n---\n` : ''}
 
 The user will ask you to modify specific sections, adjust tone, change pricing, add details, etc. When you make changes:
 
@@ -28,13 +30,15 @@ The user will ask you to modify specific sections, adjust tone, change pricing, 
 
 If the user is just asking a question (not requesting changes), respond conversationally without the proposal tags.
 
-Always maintain the professional, persuasive tone. Keep the proposal structure intact unless asked to restructure.`
+The proposal has these sections: Executive Summary, The Opportunity, Competitor Analysis, Industry Insights, Our Solution, Content Strategy Preview, Deliverables, 90-Day Roadmap, Investment (3 tiers), Why Mazero, Next Steps.
+
+Always maintain the professional, data-backed, persuasive tone. Reference the research data when adding new content. Keep all section numbers and structure intact unless asked to change them.`
 
     const client = new Anthropic({ apiKey })
 
     const stream = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages,
       stream: true,
