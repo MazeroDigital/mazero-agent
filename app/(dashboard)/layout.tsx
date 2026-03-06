@@ -17,7 +17,7 @@ export default async function DashboardLayout({
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#f7f8fc', overflow: 'hidden' }}>
       <Sidebar user={user} />
-      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {children}
       </main>
     </div>

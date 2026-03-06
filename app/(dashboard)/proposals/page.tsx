@@ -519,7 +519,16 @@ export default function ProposalsPage() {
   const stepIndex = STEPS.findIndex((s) => s.key === step)
 
   return (
-    <div className="animate-fadeIn" style={{ maxWidth: step === 'output' ? '100%' : '760px', margin: '0 auto', transition: 'max-width 0.3s ease' }}>
+    <div className="animate-fadeIn" style={{
+      maxWidth: step === 'output' ? '100%' : '760px',
+      margin: '0 auto',
+      transition: 'max-width 0.3s ease',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: step === 'output' ? 'hidden' : 'auto',
+      padding: '24px 28px',
+    }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
@@ -810,9 +819,9 @@ export default function ProposalsPage() {
 
       {/* ═══════ STEP 4: OUTPUT ═══════ */}
       {step === 'output' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '16px', height: 'calc(100vh - 210px)', minHeight: '500px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '16px', flex: 1, minHeight: 0 }}>
           {/* Left: Proposal */}
-          <div className="card" style={{ borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="card" style={{ borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
             {/* Toolbar */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -859,19 +868,19 @@ export default function ProposalsPage() {
             )}
 
             {/* Proposal Content */}
-            <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px', minHeight: 0 }}>
               {renderMarkdown(proposal)}
             </div>
           </div>
 
           {/* Right: Chat */}
-          <div className="card" style={{ borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="card" style={{ borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', flexShrink: 0 }}>
               <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Refine Proposal</span>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Edit any section with AI</p>
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
               {chatMessages.length === 0 && (
                 <div style={{ padding: '32px 12px', textAlign: 'center' }}>
                   <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', marginBottom: '16px' }}>
