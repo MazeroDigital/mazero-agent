@@ -67,7 +67,7 @@ function IconLogout() {
 const NAV_ITEMS = [
   { href: '/secretary', label: 'Secretary', Icon: IconSecretary, tag: 'AI' },
   { href: '/content', label: 'Content', Icon: IconContent, tag: 'AI' },
-  { href: '/proposal', label: 'Proposal', Icon: IconProposal, tag: 'AI' },
+  { href: '/proposals', label: 'Proposal', Icon: IconProposal, tag: 'AI' },
   { href: '/research', label: 'Research', Icon: IconResearch, tag: 'AI' },
   { href: '/clients', label: 'Clients', Icon: IconClients, tag: null },
   { href: '/settings', label: 'Settings', Icon: IconSettings, tag: null },
