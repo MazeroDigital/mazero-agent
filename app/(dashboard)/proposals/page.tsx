@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
+
+const ProposalPresentation = lazy(() => import('@/components/ui/ProposalPresentation'))
 
 type Step = 'chat' | 'processing' | 'output'
 
@@ -74,6 +76,13 @@ function ArrowLeftIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+    </svg>
+  )
+}
+function PresentIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
     </svg>
   )
 }
@@ -263,6 +272,7 @@ export default function ProposalsPage() {
   const [imagesLoading, setImagesLoading] = useState(false)
   const [canvaUrl, setCanvaUrl] = useState<string | null>(null)
   const [showResearch, setShowResearch] = useState(false)
+  const [showPresentation, setShowPresentation] = useState(false)
   const [copied, setCopied] = useState(false)
 
   // Refinement chat state
@@ -741,8 +751,11 @@ export default function ProposalsPage() {
               <button onClick={downloadPDF} className="btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>
                 <DownloadIcon /> PDF
               </button>
+              <button onClick={() => setShowPresentation(true)} className="btn-gold" style={{ padding: '6px 12px', fontSize: '11px' }}>
+                <PresentIcon /> Present
+              </button>
               {canvaUrl && (
-                <a href={canvaUrl} target="_blank" rel="noopener noreferrer" className="btn-gold" style={{ padding: '6px 12px', fontSize: '11px', textDecoration: 'none' }}>
+                <a href={canvaUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{ padding: '6px 12px', fontSize: '11px', textDecoration: 'none' }}>
                   <CanvaIcon /> Canva
                 </a>
               )}
@@ -846,6 +859,19 @@ export default function ProposalsPage() {
               </form>
             </div>
           </div>
+
+          {/* Presentation overlay */}
+          {showPresentation && (
+            <Suspense fallback={null}>
+              <ProposalPresentation
+                proposal={proposal}
+                prospectName={prospectName}
+                industry={brief?.industry || ''}
+                images={proposalImages}
+                onClose={() => setShowPresentation(false)}
+              />
+            </Suspense>
+          )}
         </>
       )}
     </div>
