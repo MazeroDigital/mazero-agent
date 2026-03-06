@@ -281,6 +281,11 @@ export default function ProposalsPage() {
   const [refineLoading, setRefineLoading] = useState(false)
   const refineEndRef = useRef<HTMLDivElement>(null)
 
+  // Version history
+  const [versions, setVersions] = useState<{ label: string; proposal: string }[]>([])
+  const [activeVersion, setActiveVersion] = useState(0)
+  const [showVersions, setShowVersions] = useState(false)
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
@@ -473,6 +478,8 @@ export default function ProposalsPage() {
       .catch(() => {})
 
     await Promise.all([imagePromise, canvaPromise])
+    setVersions([{ label: 'Original', proposal: proposalText }])
+    setActiveVersion(0)
     setStep('output')
   }, [])
 
@@ -521,8 +528,16 @@ export default function ProposalsPage() {
       const si = fullResponse.indexOf('[PROPOSAL_START]')
       const ei = fullResponse.indexOf('[PROPOSAL_END]')
       if (si !== -1 && ei !== -1) {
-        setProposal(fullResponse.slice(si + '[PROPOSAL_START]'.length, ei).trim())
+        const updatedProposal = fullResponse.slice(si + '[PROPOSAL_START]'.length, ei).trim()
+        setProposal(updatedProposal)
         const explanation = fullResponse.slice(0, si).trim()
+
+        // Save version
+        const versionNum = versions.length + 1
+        const shortLabel = text.length > 30 ? text.slice(0, 30) + '...' : text
+        setVersions((prev) => [...prev, { label: `V${versionNum}: ${shortLabel}`, proposal: updatedProposal }])
+        setActiveVersion(versionNum - 1)
+
         setRefineMessages((prev) => {
           const updated = [...prev]
           updated[updated.length - 1] = { role: 'assistant', content: explanation || 'Proposal updated.' }
@@ -537,6 +552,13 @@ export default function ProposalsPage() {
     } finally {
       setRefineLoading(false)
     }
+  }
+
+  // --- Restore a version ---
+  function restoreVersion(index: number) {
+    setProposal(versions[index].proposal)
+    setActiveVersion(index)
+    setShowVersions(false)
   }
 
   // --- Utilities ---
@@ -591,6 +613,9 @@ export default function ProposalsPage() {
     setRefineMessages([])
     setRefineInput('')
     setShowResearch(false)
+    setVersions([])
+    setActiveVersion(0)
+    setShowVersions(false)
     setStep('chat')
   }
 
@@ -797,32 +822,68 @@ export default function ProposalsPage() {
 
             {/* Right: Refinement chat */}
             <div className="card" style={{ borderRadius: '14px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', flexShrink: 0 }}>
-                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Refine Proposal</span>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Edit any section with AI</p>
+              {/* Header with version toggle */}
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Refine Proposal</span>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>Edit sections, change tone, add slides</p>
+                  </div>
+                  {versions.length > 1 && (
+                    <button onClick={() => setShowVersions(!showVersions)} style={{
+                      padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                      background: showVersions ? 'var(--gold-light)' : 'transparent',
+                      border: '1px solid var(--border)', color: showVersions ? 'var(--gold)' : 'var(--text-muted)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                      V{activeVersion + 1}/{versions.length}
+                    </button>
+                  )}
+                </div>
+
+                {/* Version history dropdown */}
+                {showVersions && versions.length > 1 && (
+                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflow: 'auto' }}>
+                    {versions.map((v, i) => (
+                      <button key={i} onClick={() => restoreVersion(i)} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px',
+                        background: i === activeVersion ? 'var(--gold-light)' : 'transparent',
+                        border: i === activeVersion ? '1px solid var(--gold-border)' : '1px solid transparent',
+                        color: i === activeVersion ? 'var(--gold)' : 'var(--text-muted)',
+                        cursor: 'pointer', fontSize: '11px', fontFamily: 'inherit', textAlign: 'left', width: '100%',
+                      }}>
+                        <span style={{ fontWeight: 700, flexShrink: 0 }}>V{i + 1}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.label}</span>
+                        {i === activeVersion && <span style={{ marginLeft: 'auto', fontSize: '10px', flexShrink: 0 }}>current</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div style={{ flex: 1, overflow: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
+              {/* Chat messages */}
+              <div style={{ flex: 1, overflow: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
                 {refineMessages.length === 0 && (
-                  <div style={{ padding: '32px 12px', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', marginBottom: '16px' }}>
-                      Ask to edit any section:
+                  <div style={{ padding: '16px 8px' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '14px', textAlign: 'center' }}>
+                      Tell me what to change:
                     </p>
                     {[
                       'Make the pricing more aggressive',
-                      'Add a case study reference',
+                      'Change the roadmap to 6 months',
+                      'Make the tone more urgent and direct',
                       'Rewrite the executive summary',
-                      'Change the 90-day roadmap to 60 days',
+                      'Add more about video content strategy',
                     ].map((hint) => (
                       <button key={hint} onClick={() => setRefineInput(hint)}
                         style={{
-                          display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', marginBottom: '6px',
+                          display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', marginBottom: '5px',
                           background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px',
                           color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
                           transition: 'all 0.15s',
                         }}
-                        onMouseEnter={(e) => { (e.target as HTMLElement).style.borderColor = 'var(--gold-border)' }}
-                        onMouseLeave={(e) => { (e.target as HTMLElement).style.borderColor = 'var(--border)' }}>
+                        onMouseEnter={(e) => { (e.currentTarget).style.borderColor = 'var(--gold-border)' }}
+                        onMouseLeave={(e) => { (e.currentTarget).style.borderColor = 'var(--border)' }}>
                         &quot;{hint}&quot;
                       </button>
                     ))}
@@ -849,9 +910,35 @@ export default function ProposalsPage() {
                 <div ref={refineEndRef} />
               </div>
 
-              <form onSubmit={sendRefineMessage} style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
+              {/* Quick action buttons */}
+              <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', flexShrink: 0 }}>
+                {[
+                  { label: 'More aggressive', icon: '🔥' },
+                  { label: 'Simplify language', icon: '✂️' },
+                  { label: 'Add urgency', icon: '⚡' },
+                  { label: 'Change theme', icon: '🎨' },
+                  { label: 'Add slide', icon: '+' },
+                  { label: 'Remove slide', icon: '−' },
+                ].map((action) => (
+                  <button key={action.label} onClick={() => setRefineInput(action.label)}
+                    style={{
+                      padding: '4px 10px', borderRadius: '20px', fontSize: '11px',
+                      background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                      color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold-border)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}>
+                    <span>{action.icon}</span> {action.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Input */}
+              <form onSubmit={sendRefineMessage} style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
                 <input className="input-field" value={refineInput} onChange={(e) => setRefineInput(e.target.value)}
-                  placeholder="Refine the proposal..." disabled={refineLoading}
+                  placeholder="Change pricing, add slides, adjust tone..."
+                  disabled={refineLoading}
                   style={{ flex: 1, fontSize: '13px', padding: '10px 14px' }} />
                 <button type="submit" disabled={refineLoading || !refineInput.trim()} className="btn-gold" style={{ padding: '10px 14px', flexShrink: 0 }}>
                   <SendIcon />

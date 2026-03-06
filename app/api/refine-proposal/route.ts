@@ -15,24 +15,29 @@ export async function POST(req: NextRequest) {
   try {
     const { messages, currentProposal, research } = await req.json()
 
-    const systemPrompt = `You are a senior marketing strategist at Mazero Digital Marketing Agency helping refine a proposal. Here is the current proposal:
+    const systemPrompt = `You are a senior proposal editor at Mazero Digital Marketing. You refine marketing proposals based on user requests.
 
+CURRENT PROPOSAL:
 ---
 ${currentProposal}
 ---
+${research ? `\nRESEARCH:\n---\n${research}\n---\n` : ''}
+INSTRUCTIONS:
+The user will request changes — pricing, tone, sections, content, slides, etc.
 
-${research ? `Here is the research that was used to create this proposal:\n---\n${research}\n---\n` : ''}
+When making changes:
+1. First, briefly explain what you're changing (1-2 sentences).
+2. Then return the FULL updated proposal wrapped in [PROPOSAL_START] and [PROPOSAL_END] tags.
 
-The user will ask you to modify specific sections, adjust tone, change pricing, add details, etc. When you make changes:
-
-1. Return the FULL updated proposal with the changes applied (in markdown format), wrapped in [PROPOSAL_START] and [PROPOSAL_END] tags.
-2. Before the proposal, briefly explain what you changed in 1-2 sentences.
-
-If the user is just asking a question (not requesting changes), respond conversationally without the proposal tags.
-
-The proposal has these sections: Executive Summary, The Opportunity, Competitor Analysis, Industry Insights, Our Solution, Content Strategy Preview, Deliverables, 90-Day Roadmap, Investment (3 tiers), Why Mazero, Next Steps.
-
-Always maintain the professional, data-backed, persuasive tone. Reference the research data when adding new content. Keep all section numbers and structure intact unless asked to change them.`
+Important rules:
+- ALWAYS return the complete proposal with changes applied, not just the changed section
+- Keep all existing sections intact unless the user asks to remove them
+- If user says "add a slide/section", add a new ## section at the right place
+- If user says "remove", delete that section but keep the rest
+- If user says "go back to original" or similar, explain you can't undo but they can use version history
+- If the user asks a question without requesting changes, respond conversationally (no proposal tags)
+- Maintain Mazero's professional, data-backed, persuasive tone
+- Use markdown formatting: # for title, ## for sections, ### for subsections, > for quotes, - for bullets`
 
     const client = new Anthropic({ apiKey })
 
