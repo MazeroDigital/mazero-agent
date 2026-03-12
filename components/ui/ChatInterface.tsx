@@ -27,6 +27,14 @@ interface AgentConfig {
   suggestions: string[]
 }
 
+interface MemoryItem {
+  id: string
+  agent_name: string
+  memory_type: string
+  content: string
+  created_at: string
+}
+
 /* ─── Agent configs ───────────────────────────────────── */
 const AGENT_CONFIGS: Record<string, AgentConfig> = {
   secretary: {
@@ -95,8 +103,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
   },
 }
 
-/* ─── Simple Markdown Renderer ─────────────────────────
-   Converts common markdown to JSX without an external lib */
+/* ─── Simple Markdown Renderer ───────────────────────── */
 function renderMarkdown(text: string): React.ReactNode[] {
   const lines = text.split('\n')
   const nodes: React.ReactNode[] = []
@@ -105,100 +112,40 @@ function renderMarkdown(text: string): React.ReactNode[] {
   while (i < lines.length) {
     const line = lines[i]
 
-    // Code block
     if (line.trim().startsWith('```')) {
-      const lang = line.trim().slice(3)
       const codeLines: string[] = []
       i++
       while (i < lines.length && !lines[i].trim().startsWith('```')) {
         codeLines.push(lines[i])
         i++
       }
-      nodes.push(
-        <pre key={`pre-${i}`}>
-          <code>{codeLines.join('\n')}</code>
-        </pre>
-      )
+      nodes.push(<pre key={`pre-${i}`}><code>{codeLines.join('\n')}</code></pre>)
       i++
       continue
     }
 
-    // H2
-    if (line.startsWith('## ')) {
-      nodes.push(<h2 key={`h2-${i}`}>{inlineMarkdown(line.slice(3))}</h2>)
-      i++
-      continue
-    }
+    if (line.startsWith('## ')) { nodes.push(<h2 key={`h2-${i}`}>{inlineMarkdown(line.slice(3))}</h2>); i++; continue }
+    if (line.startsWith('### ')) { nodes.push(<h3 key={`h3-${i}`}>{inlineMarkdown(line.slice(4))}</h3>); i++; continue }
+    if (line.startsWith('# ')) { nodes.push(<h2 key={`h1-${i}`}>{inlineMarkdown(line.slice(2))}</h2>); i++; continue }
 
-    // H3
-    if (line.startsWith('### ')) {
-      nodes.push(<h3 key={`h3-${i}`}>{inlineMarkdown(line.slice(4))}</h3>)
-      i++
-      continue
-    }
-
-    // H1 → render as h2
-    if (line.startsWith('# ')) {
-      nodes.push(<h2 key={`h1-${i}`}>{inlineMarkdown(line.slice(2))}</h2>)
-      i++
-      continue
-    }
-
-    // Unordered list
     if (line.match(/^[-*+]\s/)) {
       const items: string[] = []
-      while (i < lines.length && lines[i].match(/^[-*+]\s/)) {
-        items.push(lines[i].replace(/^[-*+]\s/, ''))
-        i++
-      }
-      nodes.push(
-        <ul key={`ul-${i}`}>
-          {items.map((item, idx) => (
-            <li key={idx}>{inlineMarkdown(item)}</li>
-          ))}
-        </ul>
-      )
+      while (i < lines.length && lines[i].match(/^[-*+]\s/)) { items.push(lines[i].replace(/^[-*+]\s/, '')); i++ }
+      nodes.push(<ul key={`ul-${i}`}>{items.map((item, idx) => <li key={idx}>{inlineMarkdown(item)}</li>)}</ul>)
       continue
     }
 
-    // Ordered list
     if (line.match(/^\d+\.\s/)) {
       const items: string[] = []
-      while (i < lines.length && lines[i].match(/^\d+\.\s/)) {
-        items.push(lines[i].replace(/^\d+\.\s/, ''))
-        i++
-      }
-      nodes.push(
-        <ol key={`ol-${i}`}>
-          {items.map((item, idx) => (
-            <li key={idx}>{inlineMarkdown(item)}</li>
-          ))}
-        </ol>
-      )
+      while (i < lines.length && lines[i].match(/^\d+\.\s/)) { items.push(lines[i].replace(/^\d+\.\s/, '')); i++ }
+      nodes.push(<ol key={`ol-${i}`}>{items.map((item, idx) => <li key={idx}>{inlineMarkdown(item)}</li>)}</ol>)
       continue
     }
 
-    // Blockquote
-    if (line.startsWith('> ')) {
-      nodes.push(<blockquote key={`bq-${i}`}>{inlineMarkdown(line.slice(2))}</blockquote>)
-      i++
-      continue
-    }
+    if (line.startsWith('> ')) { nodes.push(<blockquote key={`bq-${i}`}>{inlineMarkdown(line.slice(2))}</blockquote>); i++; continue }
+    if (line.match(/^[-*_]{3,}$/)) { nodes.push(<hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', margin: '12px 0' }} />); i++; continue }
+    if (line.trim() === '') { i++; continue }
 
-    // Horizontal rule
-    if (line.match(/^[-*_]{3,}$/)) {
-      nodes.push(<hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', margin: '12px 0' }} />)
-      i++
-      continue
-    }
-
-    // Empty line → paragraph break (skip consecutive empties)
-    if (line.trim() === '') {
-      i++
-      continue
-    }
-
-    // Regular paragraph
     nodes.push(<p key={`p-${i}`}>{inlineMarkdown(line)}</p>)
     i++
   }
@@ -207,55 +154,176 @@ function renderMarkdown(text: string): React.ReactNode[] {
 }
 
 function inlineMarkdown(text: string): React.ReactNode {
-  // Split on **bold**, *italic*, `code`, handling mixed patterns
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g)
   return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx}>{part.slice(2, -2)}</strong>
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={idx}>{part.slice(1, -1)}</em>
-    }
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return <code key={idx}>{part.slice(1, -1)}</code>
-    }
+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={idx}>{part.slice(2, -2)}</strong>
+    if (part.startsWith('*') && part.endsWith('*')) return <em key={idx}>{part.slice(1, -1)}</em>
+    if (part.startsWith('`') && part.endsWith('`')) return <code key={idx}>{part.slice(1, -1)}</code>
     return part
   })
 }
 
-/* ─── Agent Avatar (coral dot) ────────────────────────── */
+/* ─── Icons ──────────────────────────────────────────── */
 function AgentDot({ config }: { config: AgentConfig }) {
   return (
     <div
       style={{
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        background: config.color,
-        boxShadow: `0 0 8px ${config.color}60`,
-        flexShrink: 0,
-        marginTop: '8px',
+        width: '8px', height: '8px', borderRadius: '50%',
+        background: config.color, boxShadow: `0 0 8px ${config.color}60`,
+        flexShrink: 0, marginTop: '8px',
       }}
     />
   )
 }
 
-/* ─── Send Icon ───────────────────────────────────────── */
 function SendIcon() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="22" y1="2" x2="11" y2="13" />
-      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
+  )
+}
+
+function MemoryIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
+      <line x1="10" y1="22" x2="14" y2="22" />
+    </svg>
+  )
+}
+
+function TrashSmallIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  )
+}
+
+/* ─── Memory Panel ───────────────────────────────────── */
+function MemoryPanel({
+  agent,
+  onClose,
+}: {
+  agent: string
+  onClose: () => void
+}) {
+  const [agentMems, setAgentMems] = useState<MemoryItem[]>([])
+  const [globalMems, setGlobalMems] = useState<MemoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/memories?agent=${agent}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setAgentMems(data.agent ?? [])
+        setGlobalMems(data.global ?? [])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [agent])
+
+  async function handleDelete(id: string) {
+    await fetch('/api/memories', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setAgentMems((prev) => prev.filter((m) => m.id !== id))
+    setGlobalMems((prev) => prev.filter((m) => m.id !== id))
+  }
+
+  const renderMem = (mem: MemoryItem) => (
+    <div
+      key={mem.id}
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: '8px',
+        padding: '8px 10px', borderRadius: '6px',
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.04)',
+        fontSize: '12px', color: '#888', lineHeight: '1.5',
+      }}
+    >
+      <span style={{ flex: 1, minWidth: 0 }}>{mem.content}</span>
+      <button
+        onClick={() => handleDelete(mem.id)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: '#333', padding: '2px', flexShrink: 0,
+          transition: 'color 0.15s', borderRadius: '4px',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#ff6b4a' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = '#333' }}
+        title="Delete memory"
+      >
+        <TrashSmallIcon />
+      </button>
+    </div>
+  )
+
+  return (
+    <div
+      style={{
+        position: 'absolute', top: '48px', right: '16px', width: '340px',
+        maxHeight: '70vh', overflowY: 'auto',
+        background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
+        padding: '16px', zIndex: 40,
+        boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+        animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <div style={{ fontSize: '12px', fontWeight: '500', color: '#e8e8e8', letterSpacing: '0.04em' }}>
+          Agent Memory
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none', border: 'none', color: '#555', cursor: 'pointer',
+            fontSize: '16px', padding: '0 4px', lineHeight: 1,
+          }}
+        >
+          &times;
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ color: '#555', fontSize: '12px', padding: '20px 0', textAlign: 'center' }}>Loading…</div>
+      ) : (
+        <>
+          {agentMems.length > 0 && (
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '10px', fontWeight: '500', color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                {agent} memories ({agentMems.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {agentMems.map(renderMem)}
+              </div>
+            </div>
+          )}
+
+          {globalMems.length > 0 && (
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: '500', color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                Shared memories ({globalMems.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {globalMems.map(renderMem)}
+              </div>
+            </div>
+          )}
+
+          {agentMems.length === 0 && globalMems.length === 0 && (
+            <div style={{ color: '#555', fontSize: '12px', padding: '20px 0', textAlign: 'center' }}>
+              No memories yet. Start chatting and important facts will be saved automatically.
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 }
 
@@ -267,6 +335,9 @@ export default function ChatInterface({ agent }: { agent: string }) {
   const [loading, setLoading] = useState(false)
   const [clients, setClients] = useState<ClientOption[]>([])
   const [selectedClientId, setSelectedClientId] = useState('')
+  const [userId, setUserId] = useState<string | null>(null)
+  const [showMemory, setShowMemory] = useState(false)
+  const [conversationLoaded, setConversationLoaded] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -275,14 +346,47 @@ export default function ChatInterface({ agent }: { agent: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Load user, clients, and restore conversation
   useEffect(() => {
     const supabase = createClient()
+
+    // Get user ID
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id)
+    })
+
+    // Load clients
     supabase
       .from('clients')
       .select('id, name, brain')
       .order('name')
       .then(({ data }) => setClients(data ?? []))
-  }, [])
+
+    // Restore previous conversation
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { setConversationLoaded(true); return }
+
+      supabase
+        .from('agent_conversations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('agent_name', agent)
+        .limit(1)
+        .single()
+        .then(({ data, error }) => {
+          if (data && !error) {
+            try {
+              const msgs = typeof data.messages === 'string' ? JSON.parse(data.messages) : data.messages
+              if (Array.isArray(msgs) && msgs.length > 0) {
+                setMessages(msgs)
+                if (data.client_id) setSelectedClientId(data.client_id)
+              }
+            } catch { /* ignore */ }
+          }
+          setConversationLoaded(true)
+        })
+    })
+  }, [agent])
 
   const sendMessage = useCallback(
     async (text?: string) => {
@@ -312,6 +416,8 @@ export default function ChatInterface({ agent }: { agent: string }) {
             messages: history.map((m) => ({ role: m.role, content: m.content })),
             agent,
             clientBrain,
+            clientId: selectedClientId || undefined,
+            userId: userId || undefined,
           }),
           signal: abortRef.current.signal,
         })
@@ -350,7 +456,7 @@ export default function ChatInterface({ agent }: { agent: string }) {
         abortRef.current = null
       }
     },
-    [input, loading, messages, agent]
+    [input, loading, messages, agent, selectedClientId, clients, userId]
   )
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -367,11 +473,22 @@ export default function ChatInterface({ agent }: { agent: string }) {
     el.style.height = Math.min(el.scrollHeight, 160) + 'px'
   }
 
-  function clearChat() {
+  async function clearChat() {
     if (loading && abortRef.current) abortRef.current.abort()
     setMessages([])
     setInput('')
     setLoading(false)
+
+    // Delete saved conversation
+    if (userId) {
+      const supabase = createClient()
+      supabase
+        .from('agent_conversations')
+        .delete()
+        .eq('user_id', userId)
+        .eq('agent_name', agent)
+        .then(() => {})
+    }
   }
 
   const canSend = input.trim().length > 0 && !loading
@@ -398,16 +515,14 @@ export default function ChatInterface({ agent }: { agent: string }) {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
+          position: 'relative',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: config.color,
-              boxShadow: `0 0 8px ${config.color}60`,
+              width: '8px', height: '8px', borderRadius: '50%',
+              background: config.color, boxShadow: `0 0 8px ${config.color}60`,
             }}
           />
           <div>
@@ -415,7 +530,7 @@ export default function ChatInterface({ agent }: { agent: string }) {
               {config.title}
             </div>
             <div style={{ fontSize: '11px', color: '#555', marginTop: '1px' }}>
-              claude-sonnet-4-6
+              claude-sonnet-4-6 · memory enabled
             </div>
           </div>
         </div>
@@ -429,13 +544,8 @@ export default function ChatInterface({ agent }: { agent: string }) {
               border: `1px solid ${selectedClientId ? 'rgba(255,107,74,0.15)' : 'rgba(255,255,255,0.08)'}`,
               borderRadius: '8px',
               color: selectedClientId ? '#ff9a6c' : '#555',
-              fontSize: '12px',
-              fontWeight: '400',
-              padding: '5px 10px',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              outline: 'none',
-              maxWidth: '160px',
+              fontSize: '12px', fontWeight: '400', padding: '5px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', outline: 'none', maxWidth: '160px',
             }}
           >
             <option value="">No client context</option>
@@ -446,6 +556,37 @@ export default function ChatInterface({ agent }: { agent: string }) {
             ))}
           </select>
 
+          {/* Memory button */}
+          <button
+            onClick={() => setShowMemory(!showMemory)}
+            title="View agent memory"
+            style={{
+              background: showMemory ? 'rgba(255,107,74,0.1)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${showMemory ? 'rgba(255,107,74,0.2)' : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: '8px',
+              color: showMemory ? '#ff6b4a' : '#555',
+              padding: '5px 8px',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+              fontSize: '11px', fontWeight: '400', fontFamily: 'inherit',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              if (!showMemory) {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                e.currentTarget.style.color = '#888'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!showMemory) {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+                e.currentTarget.style.color = '#555'
+              }
+            }}
+          >
+            <MemoryIcon />
+            Memory
+          </button>
+
           {messages.length > 0 && (
             <button
               onClick={clearChat}
@@ -453,12 +594,8 @@ export default function ChatInterface({ agent }: { agent: string }) {
                 background: 'transparent',
                 border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '8px',
-                color: '#555',
-                fontSize: '12px',
-                fontWeight: '400',
-                padding: '5px 14px',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
+                color: '#555', fontSize: '12px', fontWeight: '400',
+                padding: '5px 14px', cursor: 'pointer', fontFamily: 'inherit',
                 transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
@@ -476,75 +613,47 @@ export default function ChatInterface({ agent }: { agent: string }) {
             </button>
           )}
         </div>
+
+        {/* Memory panel */}
+        {showMemory && <MemoryPanel agent={agent} onClose={() => setShowMemory(false)} />}
       </div>
 
       {/* Message area */}
       <div
         style={{
-          flex: 1,
-          overflowY: 'auto',
+          flex: 1, overflowY: 'auto',
           padding: isEmpty ? '0' : '28px 32px',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
+          display: 'flex', flexDirection: 'column', minHeight: 0,
         }}
       >
         {/* Empty state */}
-        {isEmpty && (
+        {isEmpty && conversationLoaded && (
           <div
             style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '40px 32px',
-              minHeight: 0,
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              padding: '40px 32px', minHeight: 0,
             }}
             className="animate-fadeIn"
           >
             <div
               style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: config.color,
-                boxShadow: `0 0 20px ${config.color}60`,
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: config.color, boxShadow: `0 0 20px ${config.color}60`,
                 marginBottom: '24px',
               }}
             />
-            <h1
-              style={{
-                fontSize: '22px',
-                fontWeight: '600',
-                color: '#e8e8e8',
-                marginBottom: '8px',
-                textAlign: 'center',
-              }}
-            >
+            <h1 style={{ fontSize: '22px', fontWeight: '600', color: '#e8e8e8', marginBottom: '8px', textAlign: 'center' }}>
               {config.title}
             </h1>
-            <p
-              style={{
-                fontSize: '14px',
-                color: '#555',
-                textAlign: 'center',
-                marginBottom: '40px',
-                maxWidth: '420px',
-                lineHeight: 1.6,
-              }}
-            >
+            <p style={{ fontSize: '14px', color: '#555', textAlign: 'center', marginBottom: '40px', maxWidth: '420px', lineHeight: 1.6 }}>
               {config.subtitle}
             </p>
 
-            {/* Suggestion chips */}
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '8px',
-                width: '100%',
-                maxWidth: '560px',
+                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '8px', width: '100%', maxWidth: '560px',
               }}
             >
               {config.suggestions.map((s, i) => (
@@ -554,15 +663,10 @@ export default function ChatInterface({ agent }: { agent: string }) {
                   style={{
                     background: 'rgba(255,255,255,0.03)',
                     border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '12px',
-                    padding: '14px 16px',
-                    fontSize: '13px',
-                    color: '#888',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    transition: 'all 0.2s ease',
-                    textAlign: 'left',
-                    lineHeight: '1.45',
+                    borderRadius: '12px', padding: '14px 16px',
+                    fontSize: '13px', color: '#888', cursor: 'pointer',
+                    fontFamily: 'inherit', transition: 'all 0.2s ease',
+                    textAlign: 'left', lineHeight: '1.45',
                   }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget as HTMLButtonElement
@@ -595,29 +699,19 @@ export default function ChatInterface({ agent }: { agent: string }) {
 
               if (msg.role === 'user') {
                 return (
-                  <div
-                    key={i}
-                    style={{ display: 'flex', justifyContent: 'flex-end' }}
-                    className="animate-fadeIn"
-                  >
+                  <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }} className="animate-fadeIn">
                     <div className="msg-user">{msg.content}</div>
                   </div>
                 )
               }
 
               return (
-                <div
-                  key={i}
-                  style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
-                  className="animate-fadeIn"
-                >
+                <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }} className="animate-fadeIn">
                   <AgentDot config={config} />
                   <div className="msg-assistant">
                     {isTyping ? (
                       <div style={{ display: 'flex', gap: '5px', padding: '4px 0', alignItems: 'center' }}>
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
+                        <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
                       </div>
                     ) : (
                       renderMarkdown(msg.content)
@@ -632,19 +726,13 @@ export default function ChatInterface({ agent }: { agent: string }) {
       </div>
 
       {/* Input bar */}
-      <div
-        style={{
-          padding: '16px 32px 20px',
-          flexShrink: 0,
-        }}
-      >
+      <div style={{ padding: '16px 32px 20px', flexShrink: 0 }}>
         <div style={{ maxWidth: '760px', margin: '0 auto', position: 'relative' }}>
           <div
             style={{
               position: 'relative',
               background: 'rgba(20,20,20,0.8)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
+              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
               borderRadius: '24px',
               border: '1px solid rgba(255,255,255,0.08)',
             }}
@@ -663,20 +751,13 @@ export default function ChatInterface({ agent }: { agent: string }) {
               onClick={() => sendMessage()}
               disabled={!canSend}
               style={{
-                position: 'absolute',
-                right: '8px',
-                bottom: '8px',
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
+                position: 'absolute', right: '8px', bottom: '8px',
+                width: '36px', height: '36px', borderRadius: '50%',
                 background: canSend ? 'linear-gradient(135deg, #ff6b4a, #ff9a6c)' : 'rgba(255,255,255,0.04)',
                 border: 'none',
                 cursor: canSend ? 'pointer' : 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease',
-                flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s ease', flexShrink: 0,
                 color: canSend ? '#fff' : '#333',
                 boxShadow: canSend ? '0 0 16px rgba(255,107,74,0.3)' : 'none',
               }}
@@ -685,15 +766,7 @@ export default function ChatInterface({ agent }: { agent: string }) {
             </button>
           </div>
         </div>
-        <p
-          style={{
-            fontSize: '11px',
-            color: '#333',
-            textAlign: 'center',
-            maxWidth: '760px',
-            margin: '10px auto 0',
-          }}
-        >
+        <p style={{ fontSize: '11px', color: '#333', textAlign: 'center', maxWidth: '760px', margin: '10px auto 0' }}>
           Enter to send · Shift+Enter for new line
         </p>
       </div>

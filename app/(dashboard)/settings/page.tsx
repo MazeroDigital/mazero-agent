@@ -75,12 +75,37 @@ create table if not exists api_keys (
   created_at timestamptz default now()
 );
 
+-- Agent Memory (persistent memory across all agents)
+create table if not exists agent_memory (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) not null,
+  agent_name text not null,
+  memory_type text default 'fact',
+  content text not null,
+  metadata jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Agent Conversations (persisted chat history per agent)
+create table if not exists agent_conversations (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) not null,
+  agent_name text not null,
+  messages text not null,
+  client_id uuid references clients(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- Row Level Security
 alter table clients enable row level security;
 alter table tasks enable row level security;
 alter table proposals enable row level security;
 alter table content_items enable row level security;
 alter table api_keys enable row level security;
+alter table agent_memory enable row level security;
+alter table agent_conversations enable row level security;
 
 create policy "users_clients" on clients
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -91,6 +116,10 @@ create policy "users_proposals" on proposals
 create policy "users_content" on content_items
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "users_api_keys" on api_keys
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "users_agent_memory" on agent_memory
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "users_agent_conversations" on agent_conversations
   using (auth.uid() = user_id) with check (auth.uid() = user_id);`
 
 const LABEL_STYLE = {

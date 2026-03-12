@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { fetchMemories, buildMemoryContext, saveMemories, saveConversation } from '@/lib/memory'
 
 // Allow streaming responses up to 60 seconds on Vercel
 export const maxDuration = 60
@@ -104,9 +106,37 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { messages, agent, clientBrain } = await req.json()
+    const { messages, agent, clientBrain, clientId, userId } = await req.json()
 
     let systemPrompt = SYSTEM_PROMPTS[agent] ?? SYSTEM_PROMPTS.research
+
+    // Fetch and inject memories if we have a userId
+    let memoryContext = ''
+    if (userId && ['secretary', 'content', 'proposal', 'research'].includes(agent)) {
+      try {
+        const supabase = await createClient()
+        const memories = await fetchMemories(supabase, userId, agent, {
+          limit: 20,
+          clientId: clientId || undefined,
+        })
+        memoryContext = buildMemoryContext(memories)
+      } catch (e) {
+        console.warn('Memory fetch failed (table may not exist yet):', e)
+      }
+    }
+
+    // Build full system prompt with memory
+    if (memoryContext) {
+      systemPrompt = `You are the ${agent.charAt(0).toUpperCase() + agent.slice(1)} Agent for Mazero Digital Marketing agency.
+
+${memoryContext}
+
+You have full memory of all past interactions. Reference this context naturally without saying "based on my memory" or "I remember". Just use the knowledge seamlessly.
+
+---
+
+${systemPrompt}`
+    }
 
     // Inject client brain into system prompt when a client is selected
     if (clientBrain) {
@@ -115,6 +145,9 @@ export async function POST(req: NextRequest) {
 
     // Initialize client per-request so missing env var fails gracefully
     const client = new Anthropic({ apiKey })
+
+    // Collect full response for memory extraction
+    let fullResponse = ''
 
     const stream = await client.messages.create({
       model: 'claude-sonnet-4-6',
@@ -125,6 +158,7 @@ export async function POST(req: NextRequest) {
     })
 
     const encoder = new TextEncoder()
+    const lastUserMessage = messages[messages.length - 1]?.content ?? ''
 
     const readableStream = new ReadableStream({
       async start(controller) {
@@ -134,11 +168,18 @@ export async function POST(req: NextRequest) {
               event.type === 'content_block_delta' &&
               event.delta.type === 'text_delta'
             ) {
+              fullResponse += event.delta.text
               controller.enqueue(encoder.encode(event.delta.text))
             }
           }
         } finally {
           controller.close()
+
+          // After stream completes, save conversation and extract memories in background
+          if (userId && ['secretary', 'content', 'proposal', 'research'].includes(agent)) {
+            extractAndSaveMemories(userId, agent, lastUserMessage, fullResponse, clientId).catch(() => {})
+            saveConversationInBackground(userId, agent, messages, fullResponse, clientId).catch(() => {})
+          }
         }
       },
     })
@@ -156,5 +197,99 @@ export async function POST(req: NextRequest) {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
+  }
+}
+
+/* ─── Background: extract facts and save to memory ───── */
+async function extractAndSaveMemories(
+  userId: string,
+  agentName: string,
+  userMessage: string,
+  assistantMessage: string,
+  clientId?: string
+) {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) return
+
+    const client = new Anthropic({ apiKey })
+
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: `You extract important facts from conversations that should be remembered long-term. Return a JSON object with two arrays:
+{"agent_facts": ["facts specific to this agent's domain"], "global_facts": ["facts that all agents should know"]}
+
+Agent-specific facts (save to this agent only):
+- Task-specific details for Secretary
+- Content preferences/created posts for Content
+- Proposal details/pricing for Proposal
+- Research findings for Research
+
+Global facts (save for all agents):
+- Client preferences mentioned
+- Strategic decisions
+- User preferences
+- Important results or outcomes
+
+Only extract genuinely important things. If nothing notable, return {"agent_facts":[],"global_facts":[]}
+Respond with ONLY JSON, no other text.`,
+      messages: [
+        {
+          role: 'user',
+          content: `Agent: ${agentName}\nUser: "${userMessage}"\nAgent response: "${assistantMessage.slice(0, 2000)}"`,
+        },
+      ],
+    })
+
+    const text = response.content[0].type === 'text' ? response.content[0].text : '{}'
+    let parsed: { agent_facts?: string[]; global_facts?: string[] } = {}
+
+    try {
+      parsed = JSON.parse(text.trim())
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/)
+      if (match) {
+        try { parsed = JSON.parse(match[0]) } catch { /* ignore */ }
+      }
+    }
+
+    const supabase = await createClient()
+
+    const agentFacts = (parsed.agent_facts ?? []).filter((f): f is string => typeof f === 'string' && f.length > 0)
+    const globalFacts = (parsed.global_facts ?? []).filter((f): f is string => typeof f === 'string' && f.length > 0)
+
+    if (agentFacts.length > 0) {
+      await saveMemories(supabase, userId, agentName, agentFacts, {
+        clientId: clientId || undefined,
+        memoryType: 'fact',
+      })
+    }
+
+    if (globalFacts.length > 0) {
+      await saveMemories(supabase, userId, 'global', globalFacts, {
+        clientId: clientId || undefined,
+        memoryType: 'fact',
+      })
+    }
+  } catch (e) {
+    console.warn('Memory extraction failed:', e)
+  }
+}
+
+/* ─── Background: save conversation to DB ────────────── */
+async function saveConversationInBackground(
+  userId: string,
+  agentName: string,
+  messages: { role: string; content: string }[],
+  lastAssistantMsg: string,
+  clientId?: string
+) {
+  try {
+    const supabase = await createClient()
+    const fullMessages = [...messages, { role: 'assistant', content: lastAssistantMsg }]
+    await saveConversation(supabase, userId, agentName, fullMessages, clientId)
+  } catch (e) {
+    console.warn('Conversation save failed:', e)
   }
 }
