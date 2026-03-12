@@ -32,8 +32,8 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
   secretary: {
     id: 'secretary',
     label: 'Secretary',
-    color: '#f5a623',
-    bgColor: 'rgba(245,166,35,0.12)',
+    color: '#ff6b4a',
+    bgColor: 'rgba(255,107,74,0.1)',
     initial: 'S',
     title: 'Secretary Agent',
     subtitle: 'Your executive assistant for tasks, priorities, scheduling, and daily operations.',
@@ -49,7 +49,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     id: 'content',
     label: 'Content',
     color: '#3b82f6',
-    bgColor: 'rgba(59,130,246,0.12)',
+    bgColor: 'rgba(59,130,246,0.1)',
     initial: 'C',
     title: 'Content Agent',
     subtitle: 'Expert social media strategist. Plan, write, and schedule content for your clients.',
@@ -65,7 +65,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     id: 'proposal',
     label: 'Proposal',
     color: '#a855f7',
-    bgColor: 'rgba(168,85,247,0.12)',
+    bgColor: 'rgba(168,85,247,0.1)',
     initial: 'P',
     title: 'Proposal Agent',
     subtitle: 'Craft persuasive, high-converting marketing proposals for your clients.',
@@ -81,7 +81,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     id: 'research',
     label: 'Research',
     color: '#10b981',
-    bgColor: 'rgba(16,185,129,0.12)',
+    bgColor: 'rgba(16,185,129,0.1)',
     initial: 'R',
     title: 'Research Agent',
     subtitle: 'Deep-dive analysis, competitor intelligence, audience insights, and trend spotting.',
@@ -187,7 +187,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
 
     // Horizontal rule
     if (line.match(/^[-*_]{3,}$/)) {
-      nodes.push(<hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />)
+      nodes.push(<hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', margin: '12px 0' }} />)
       i++
       continue
     }
@@ -223,42 +223,33 @@ function inlineMarkdown(text: string): React.ReactNode {
   })
 }
 
-/* ─── Agent Avatar ────────────────────────────────────── */
-function AgentAvatar({ config }: { config: AgentConfig }) {
+/* ─── Agent Avatar (coral dot) ────────────────────────── */
+function AgentDot({ config }: { config: AgentConfig }) {
   return (
     <div
       style={{
-        width: '30px',
-        height: '30px',
+        width: '8px',
+        height: '8px',
         borderRadius: '50%',
-        background: config.bgColor,
-        border: `1.5px solid ${config.color}44`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '11px',
-        fontWeight: '800',
-        color: config.color,
+        background: config.color,
+        boxShadow: `0 0 8px ${config.color}60`,
         flexShrink: 0,
-        marginTop: '2px',
-        fontFamily: 'var(--font-syne), sans-serif',
+        marginTop: '8px',
       }}
-    >
-      {config.initial}
-    </div>
+    />
   )
 }
 
 /* ─── Send Icon ───────────────────────────────────────── */
-function SendIcon({ active }: { active: boolean }) {
+function SendIcon() {
   return (
     <svg
-      width="15"
-      height="15"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? '#fff' : 'var(--text-muted)'}
-      strokeWidth="2.5"
+      stroke="currentColor"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
@@ -392,15 +383,17 @@ export default function ChatInterface({ agent }: { agent: string }) {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: '#f7f8fc',
+        background: '#0a0a0a',
       }}
     >
       {/* Top bar */}
       <div
         style={{
-          padding: '14px 32px',
-          borderBottom: '1px solid var(--border)',
-          background: '#fff',
+          padding: '12px 32px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(20,20,20,0.8)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -410,28 +403,19 @@ export default function ChatInterface({ agent }: { agent: string }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
-              width: '28px',
-              height: '28px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
-              background: config.bgColor,
-              border: `1.5px solid ${config.color}44`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
-              fontWeight: '800',
-              color: config.color,
-              fontFamily: 'var(--font-syne), sans-serif',
+              background: config.color,
+              boxShadow: `0 0 8px ${config.color}60`,
             }}
-          >
-            {config.initial}
-          </div>
+          />
           <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+            <div style={{ fontSize: '13px', fontWeight: '500', color: '#e8e8e8', lineHeight: 1.2 }}>
               {config.title}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
-              Powered by Claude · claude-sonnet-4-6
+            <div style={{ fontSize: '11px', color: '#555', marginTop: '1px' }}>
+              claude-sonnet-4-6
             </div>
           </div>
         </div>
@@ -441,12 +425,12 @@ export default function ChatInterface({ agent }: { agent: string }) {
             value={selectedClientId}
             onChange={(e) => setSelectedClientId(e.target.value)}
             style={{
-              background: selectedClientId ? 'rgba(245,166,35,0.08)' : 'var(--bg-secondary)',
-              border: `1px solid ${selectedClientId ? 'rgba(245,166,35,0.3)' : 'var(--border)'}`,
-              borderRadius: '7px',
-              color: selectedClientId ? '#d97706' : 'var(--text-muted)',
+              background: selectedClientId ? 'rgba(255,107,74,0.06)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${selectedClientId ? 'rgba(255,107,74,0.15)' : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: '8px',
+              color: selectedClientId ? '#ff9a6c' : '#555',
               fontSize: '12px',
-              fontWeight: '600',
+              fontWeight: '400',
               padding: '5px 10px',
               cursor: 'pointer',
               fontFamily: 'inherit',
@@ -454,7 +438,7 @@ export default function ChatInterface({ agent }: { agent: string }) {
               maxWidth: '160px',
             }}
           >
-            <option value="">🧠 No client</option>
+            <option value="">No client context</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id} disabled={!c.brain}>
                 {c.name}{!c.brain ? ' (no brain)' : ''}
@@ -467,23 +451,25 @@ export default function ChatInterface({ agent }: { agent: string }) {
               onClick={clearChat}
               style={{
                 background: 'transparent',
-                border: '1px solid var(--border-strong)',
-                borderRadius: '7px',
-                color: 'var(--text-muted)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '8px',
+                color: '#555',
                 fontSize: '12px',
-                fontWeight: '600',
+                fontWeight: '400',
                 padding: '5px 14px',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
-                transition: 'all 0.15s',
+                transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
-                ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-secondary)'
-                ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)'
+                const el = e.currentTarget as HTMLButtonElement
+                el.style.borderColor = 'rgba(255,255,255,0.15)'
+                el.style.color = '#888'
               }}
               onMouseLeave={(e) => {
-                ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'
+                const el = e.currentTarget as HTMLButtonElement
+                el.style.borderColor = 'rgba(255,255,255,0.08)'
+                el.style.color = '#555'
               }}
             >
               New chat
@@ -515,34 +501,25 @@ export default function ChatInterface({ agent }: { agent: string }) {
               padding: '40px 32px',
               minHeight: 0,
             }}
+            className="animate-fadeIn"
           >
             <div
               style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '16px',
-                background: config.bgColor,
-                border: `1.5px solid ${config.color}44`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '20px',
-                fontWeight: '800',
-                color: config.color,
-                marginBottom: '20px',
-                fontFamily: 'var(--font-syne), sans-serif',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: config.color,
+                boxShadow: `0 0 20px ${config.color}60`,
+                marginBottom: '24px',
               }}
-            >
-              {config.initial}
-            </div>
+            />
             <h1
               style={{
-                fontSize: '24px',
-                fontWeight: '800',
-                color: 'var(--text-primary)',
-                marginBottom: '10px',
+                fontSize: '22px',
+                fontWeight: '600',
+                color: '#e8e8e8',
+                marginBottom: '8px',
                 textAlign: 'center',
-                fontFamily: 'var(--font-syne), sans-serif',
               }}
             >
               {config.title}
@@ -550,7 +527,7 @@ export default function ChatInterface({ agent }: { agent: string }) {
             <p
               style={{
                 fontSize: '14px',
-                color: 'var(--text-secondary)',
+                color: '#555',
                 textAlign: 'center',
                 marginBottom: '40px',
                 maxWidth: '420px',
@@ -565,9 +542,9 @@ export default function ChatInterface({ agent }: { agent: string }) {
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '10px',
+                gap: '8px',
                 width: '100%',
-                maxWidth: '580px',
+                maxWidth: '560px',
               }}
             >
               {config.suggestions.map((s, i) => (
@@ -575,31 +552,30 @@ export default function ChatInterface({ agent }: { agent: string }) {
                   key={i}
                   onClick={() => sendMessage(s)}
                   style={{
-                    background: '#fff',
-                    border: '1.5px solid var(--border)',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
                     borderRadius: '12px',
                     padding: '14px 16px',
                     fontSize: '13px',
-                    color: 'var(--text-secondary)',
+                    color: '#888',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
-                    transition: 'all 0.15s ease',
+                    transition: 'all 0.2s ease',
                     textAlign: 'left',
                     lineHeight: '1.45',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget as HTMLButtonElement
-                    el.style.borderColor = config.color + '66'
-                    el.style.color = 'var(--text-primary)'
-                    el.style.boxShadow = `0 2px 8px rgba(0,0,0,0.08), 0 0 0 3px ${config.color}12`
+                    el.style.borderColor = 'rgba(255,255,255,0.12)'
+                    el.style.color = '#e8e8e8'
+                    el.style.background = 'rgba(255,255,255,0.05)'
                     el.style.transform = 'translateY(-1px)'
                   }}
                   onMouseLeave={(e) => {
                     const el = e.currentTarget as HTMLButtonElement
-                    el.style.borderColor = 'var(--border)'
-                    el.style.color = 'var(--text-secondary)'
-                    el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'
+                    el.style.borderColor = 'rgba(255,255,255,0.06)'
+                    el.style.color = '#888'
+                    el.style.background = 'rgba(255,255,255,0.03)'
                     el.style.transform = 'translateY(0)'
                   }}
                 >
@@ -612,7 +588,7 @@ export default function ChatInterface({ agent }: { agent: string }) {
 
         {/* Messages */}
         {!isEmpty && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '760px', margin: '0 auto', width: '100%' }}>
             {messages.map((msg, i) => {
               const isLast = i === messages.length - 1
               const isTyping = isLast && loading && msg.role === 'assistant' && msg.content === ''
@@ -635,7 +611,7 @@ export default function ChatInterface({ agent }: { agent: string }) {
                   style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
                   className="animate-fadeIn"
                 >
-                  <AgentAvatar config={config} />
+                  <AgentDot config={config} />
                   <div className="msg-assistant">
                     {isTyping ? (
                       <div style={{ display: 'flex', gap: '5px', padding: '4px 0', alignItems: 'center' }}>
@@ -659,57 +635,66 @@ export default function ChatInterface({ agent }: { agent: string }) {
       <div
         style={{
           padding: '16px 32px 20px',
-          background: '#fff',
-          borderTop: '1px solid var(--border)',
           flexShrink: 0,
         }}
       >
         <div style={{ maxWidth: '760px', margin: '0 auto', position: 'relative' }}>
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            placeholder={config.placeholder}
-            rows={1}
-            className="chat-input"
-            style={{ display: 'block' }}
-          />
-          <button
-            onClick={() => sendMessage()}
-            disabled={!canSend}
+          <div
             style={{
-              position: 'absolute',
-              right: '10px',
-              bottom: '10px',
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: canSend ? config.color : 'var(--bg-secondary)',
-              border: 'none',
-              cursor: canSend ? 'pointer' : 'not-allowed',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s ease',
-              flexShrink: 0,
-              boxShadow: canSend ? `0 2px 8px ${config.color}44` : 'none',
+              position: 'relative',
+              background: 'rgba(20,20,20,0.8)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255,255,255,0.08)',
             }}
           >
-            <SendIcon active={canSend} />
-          </button>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
+              placeholder={config.placeholder}
+              rows={1}
+              className="chat-input"
+              style={{ display: 'block', background: 'transparent', border: 'none' }}
+            />
+            <button
+              onClick={() => sendMessage()}
+              disabled={!canSend}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                bottom: '8px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: canSend ? 'linear-gradient(135deg, #ff6b4a, #ff9a6c)' : 'rgba(255,255,255,0.04)',
+                border: 'none',
+                cursor: canSend ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease',
+                flexShrink: 0,
+                color: canSend ? '#fff' : '#333',
+                boxShadow: canSend ? '0 0 16px rgba(255,107,74,0.3)' : 'none',
+              }}
+            >
+              <SendIcon />
+            </button>
+          </div>
         </div>
         <p
           style={{
             fontSize: '11px',
-            color: 'var(--text-muted)',
+            color: '#333',
             textAlign: 'center',
-            marginTop: '10px',
             maxWidth: '760px',
             margin: '10px auto 0',
           }}
         >
-          Enter ↵ to send · Shift+Enter for new line · Powered by Claude claude-sonnet-4-6
+          Enter to send · Shift+Enter for new line
         </p>
       </div>
     </div>

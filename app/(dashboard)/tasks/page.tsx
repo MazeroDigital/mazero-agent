@@ -17,7 +17,7 @@ type Client = { id: string; name: string }
 
 type Filter = 'open' | 'all' | 'completed'
 
-const PRIORITY_COLOR: Record<string, string> = { high: '#e05252', medium: '#f5a623', low: '#4caf7d' }
+const PRIORITY_COLOR: Record<string, string> = { high: '#ff6b4a', medium: '#ff9a6c', low: '#10b981' }
 
 function PlusIcon() {
   return (
@@ -93,12 +93,12 @@ export default function TasksPage() {
   const doneCount = tasks.filter((t) => t.completed).length
 
   return (
-    <div className="animate-fadeIn">
+    <div style={{ flex: 1, overflowY: 'auto', padding: '36px 44px', background: '#0a0a0a' }} className="animate-fadeIn">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '26px', fontWeight: '800', color: '#e8e8f0' }}>Tasks</h1>
-          <p style={{ color: '#6b6b8a', fontSize: '13px', marginTop: '4px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: '600', color: '#e8e8e8' }}>Tasks</h1>
+          <p style={{ color: '#555', fontSize: '13px', marginTop: '4px' }}>
             Track and manage your team&apos;s work.
           </p>
         </div>
@@ -109,34 +109,34 @@ export default function TasksPage() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-        <div style={{ padding: '12px 18px', borderRadius: '10px', background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.18)' }}>
-          <span style={{ fontSize: '20px', fontWeight: '800', color: '#f5a623', marginRight: '8px' }}>{openCount}</span>
-          <span style={{ fontSize: '12px', color: '#8888a4', fontWeight: '600' }}>Open</span>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+        <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(255,107,74,0.06)', border: '1px solid rgba(255,107,74,0.12)' }}>
+          <span style={{ fontSize: '18px', fontWeight: '600', color: '#ff6b4a', marginRight: '8px' }}>{openCount}</span>
+          <span style={{ fontSize: '12px', color: '#555', fontWeight: '400' }}>Open</span>
         </div>
-        <div style={{ padding: '12px 18px', borderRadius: '10px', background: 'rgba(76,175,125,0.1)', border: '1px solid rgba(76,175,125,0.18)' }}>
-          <span style={{ fontSize: '20px', fontWeight: '800', color: '#4caf7d', marginRight: '8px' }}>{doneCount}</span>
-          <span style={{ fontSize: '12px', color: '#8888a4', fontWeight: '600' }}>Done</span>
+        <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.12)' }}>
+          <span style={{ fontSize: '18px', fontWeight: '600', color: '#10b981', marginRight: '8px' }}>{doneCount}</span>
+          <span style={{ fontSize: '12px', color: '#555', fontWeight: '400' }}>Done</span>
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '3px', marginBottom: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '4px', border: '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '3px', border: '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
         {(['open', 'all', 'completed'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             style={{
-              padding: '6px 18px',
-              borderRadius: '7px',
+              padding: '5px 16px',
+              borderRadius: '6px',
               fontSize: '13px',
-              fontWeight: '600',
+              fontWeight: '400',
               fontFamily: 'inherit',
               cursor: 'pointer',
               border: 'none',
-              transition: 'all 0.15s',
-              background: filter === f ? 'rgba(245,166,35,0.15)' : 'transparent',
-              color: filter === f ? '#f5a623' : '#6b6b8a',
+              transition: 'all 0.2s',
+              background: filter === f ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color: filter === f ? '#e8e8e8' : '#555',
               textTransform: 'capitalize',
             }}
           >
@@ -147,14 +147,14 @@ export default function TasksPage() {
 
       {/* Tasks list */}
       {loading ? (
-        <div style={{ color: '#6b6b8a', fontSize: '14px' }}>Loading...</div>
+        <div style={{ color: '#555', fontSize: '14px' }}>Loading...</div>
       ) : filtered.length === 0 ? (
         <div className="glass" style={{ borderRadius: '14px', padding: '52px', textAlign: 'center' }}>
           <div style={{ fontSize: '40px', marginBottom: '12px', opacity: 0.35 }}>✅</div>
-          <p style={{ color: '#e8e8f0', fontWeight: '600', fontSize: '15px', marginBottom: '6px' }}>
+          <p style={{ color: '#e8e8e8', fontWeight: '600', fontSize: '15px', marginBottom: '6px' }}>
             {filter === 'open' ? 'All caught up!' : 'No tasks here'}
           </p>
-          <p style={{ color: '#6b6b8a', fontSize: '13px' }}>
+          <p style={{ color: '#555', fontSize: '13px' }}>
             {filter === 'open' ? 'No open tasks right now.' : 'No tasks match this filter.'}
           </p>
         </div>
@@ -201,11 +201,11 @@ export default function TasksPage() {
 
               {/* Content */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#e8e8f0', textDecoration: task.completed ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#e8e8e8', textDecoration: task.completed ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {task.title}
                 </div>
                 {task.description && (
-                  <div style={{ fontSize: '12px', color: '#6b6b8a', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '12px', color: '#555', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {task.description}
                   </div>
                 )}
@@ -213,7 +213,7 @@ export default function TasksPage() {
 
               {/* Deadline */}
               {task.deadline && (
-                <div style={{ fontSize: '12px', color: '#6b6b8a', flexShrink: 0, background: 'rgba(255,255,255,0.04)', padding: '4px 9px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ fontSize: '12px', color: '#555', flexShrink: 0, background: 'rgba(255,255,255,0.04)', padding: '4px 9px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.07)' }}>
                   {new Date(task.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </div>
               )}
@@ -238,7 +238,7 @@ export default function TasksPage() {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#3a3a52',
+                  color: '#333',
                   padding: '4px',
                   borderRadius: '5px',
                   flexShrink: 0,
@@ -249,7 +249,7 @@ export default function TasksPage() {
                   e.currentTarget.style.background = 'rgba(224,82,82,0.1)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#3a3a52'
+                  e.currentTarget.style.color = '#333'
                   e.currentTarget.style.background = 'transparent'
                 }}
               >
@@ -266,11 +266,11 @@ export default function TasksPage() {
       {showModal && (
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
-            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#e8e8f0', marginBottom: '4px' }}>New Task</h2>
-            <p style={{ color: '#6b6b8a', fontSize: '13px', marginBottom: '22px' }}>Create a new task to track your work.</p>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#e8e8e8', marginBottom: '4px' }}>New Task</h2>
+            <p style={{ color: '#555', fontSize: '13px', marginBottom: '22px' }}>Create a new task to track your work.</p>
             <form onSubmit={addTask} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#8888a4', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#555', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                   Title *
                 </label>
                 <input
@@ -282,7 +282,7 @@ export default function TasksPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#8888a4', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#555', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                   Description
                 </label>
                 <textarea
@@ -295,7 +295,7 @@ export default function TasksPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#8888a4', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#555', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                     Deadline
                   </label>
                   <input
@@ -307,7 +307,7 @@ export default function TasksPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#8888a4', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#555', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                     Priority
                   </label>
                   <select
@@ -324,7 +324,7 @@ export default function TasksPage() {
               </div>
               {clients.length > 0 && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#8888a4', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#555', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                     Client (optional)
                   </label>
                   <select

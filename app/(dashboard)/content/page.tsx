@@ -124,7 +124,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
   Reel: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444' },
   Carousel: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
   Static: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
-  Story: { bg: 'rgba(245,166,35,0.12)', text: '#f5a623' },
+  Story: { bg: 'rgba(255,107,74,0.1)', text: '#ff6b4a' },
 }
 
 /* ─── Parse [POST:{...}] tags from agent response ────── */
@@ -327,7 +327,7 @@ function PostCardComponent({
         </div>
 
         {/* CTA */}
-        <p style={{ fontSize: '11.5px', color: 'var(--gold)', fontWeight: 600, marginBottom: '8px' }}>
+        <p style={{ fontSize: '11.5px', color: 'var(--accent)', fontWeight: 600, marginBottom: '8px' }}>
           {post.cta}
         </p>
 
@@ -337,8 +337,8 @@ function PostCardComponent({
             Best: {post.bestTime}
           </span>
           <span style={{
-            fontSize: '10px', color: 'var(--gold)', fontWeight: 600,
-            background: 'var(--gold-light)', padding: '2px 8px', borderRadius: '10px',
+            fontSize: '10px', color: 'var(--accent)', fontWeight: 600,
+            background: 'var(--accent-light)', padding: '2px 8px', borderRadius: '10px',
           }}>
             {post.clientName}
           </span>

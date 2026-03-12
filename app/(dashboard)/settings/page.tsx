@@ -96,19 +96,19 @@ create policy "users_api_keys" on api_keys
 const LABEL_STYLE = {
   display: 'block' as const,
   fontSize: '11px',
-  fontWeight: '700' as const,
-  color: 'var(--text-secondary)',
+  fontWeight: '500' as const,
+  color: '#888',
   marginBottom: '7px',
   textTransform: 'uppercase' as const,
   letterSpacing: '0.07em',
 }
 const VALUE_STYLE = {
   fontSize: '14px',
-  color: 'var(--text-primary)',
+  color: '#e8e8e8',
   padding: '10px 14px',
-  background: 'var(--bg-secondary)',
+  background: 'rgba(255,255,255,0.03)',
   borderRadius: '8px',
-  border: '1px solid var(--border)',
+  border: '1px solid rgba(255,255,255,0.06)',
 }
 
 export default function SettingsPage() {
@@ -167,13 +167,13 @@ export default function SettingsPage() {
   ]
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '36px 44px', background: '#f7f8fc' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '36px 44px', background: '#0a0a0a' }} className="animate-fadeIn">
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', fontFamily: 'var(--font-syne), sans-serif' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: '600', color: '#e8e8e8' }}>
           Settings
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
+        <p style={{ color: '#555', fontSize: '13px', marginTop: '4px' }}>
           Manage your account and workspace configuration.
         </p>
       </div>
@@ -184,12 +184,11 @@ export default function SettingsPage() {
           display: 'flex',
           gap: '2px',
           marginBottom: '28px',
-          background: '#fff',
-          borderRadius: '10px',
-          padding: '4px',
-          border: '1px solid var(--border)',
+          background: 'rgba(255,255,255,0.03)',
+          borderRadius: '8px',
+          padding: '3px',
+          border: '1px solid rgba(255,255,255,0.06)',
           width: 'fit-content',
-          boxShadow: 'var(--shadow-sm)',
         }}
       >
         {TABS.map((tab) => (
@@ -197,16 +196,16 @@ export default function SettingsPage() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
-              padding: '7px 20px',
-              borderRadius: '7px',
+              padding: '6px 18px',
+              borderRadius: '6px',
               fontSize: '13px',
-              fontWeight: '600',
+              fontWeight: '400',
               fontFamily: 'inherit',
               cursor: 'pointer',
               border: 'none',
-              transition: 'all 0.15s ease',
-              background: activeTab === tab.id ? 'var(--gold)' : 'transparent',
-              color: activeTab === tab.id ? '#0a0a0f' : 'var(--text-muted)',
+              transition: 'all 0.2s ease',
+              background: activeTab === tab.id ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color: activeTab === tab.id ? '#e8e8e8' : '#555',
             }}
           >
             {tab.label}
@@ -218,15 +217,14 @@ export default function SettingsPage() {
       {activeTab === 'account' && (
         <div
           style={{
-            background: '#fff',
-            border: '1px solid var(--border)',
-            borderRadius: '14px',
-            padding: '28px',
+            background: '#111',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '12px',
+            padding: '24px',
             maxWidth: '560px',
-            boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <h2 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '500', color: '#e8e8e8', marginBottom: '24px' }}>
             Account Details
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -261,7 +259,7 @@ export default function SettingsPage() {
           </div>
 
           {apiKeys.length === 0 ? (
-            <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '14px', padding: '48px', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ background: '#111', border: '1px solid var(--border)', borderRadius: '14px', padding: '48px', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
               <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No API keys stored yet.</p>
             </div>
           ) : (
@@ -270,7 +268,7 @@ export default function SettingsPage() {
                 <div
                   key={key.id}
                   style={{
-                    background: '#fff',
+                    background: '#111',
                     border: '1px solid var(--border)',
                     borderRadius: '11px',
                     padding: '14px 18px',
@@ -359,7 +357,7 @@ export default function SettingsPage() {
               padding: '14px 18px',
               marginBottom: '18px',
               fontSize: '13px',
-              color: '#92590a',
+              color: '#ff9a6c',
               fontWeight: '600',
             }}
           >

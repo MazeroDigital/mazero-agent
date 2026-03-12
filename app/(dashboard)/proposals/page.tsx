@@ -24,7 +24,7 @@ type ProposalImages = {
   investment: string | null
 }
 
-type ChatMessage = { role: 'user' | 'assistant'; content: string }
+type ChatMessage = { role: 'user' | 'assistant'; content: string; download_url?: string }
 
 const OPENING_MESSAGE =
   "Hey! I'm your proposal strategist. Tell me about the prospect you're pitching — who are they, what do they do, and what opportunity do you see for them?"
@@ -91,7 +91,7 @@ function BoltIcon() {
 function Spinner({ size = 16 }: { size?: number }) {
   return (
     <>
-      <div style={{ width: size, height: size, border: '2px solid var(--gold)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      <div style={{ width: size, height: size, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </>
   )
@@ -137,6 +137,7 @@ export default function ProposalsPage() {
   const [canvaUrl, setCanvaUrl] = useState<string | null>(null)
   const [showPresentation, setShowPresentation] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [generatingPptx, setGeneratingPptx] = useState(false)
 
   // Refinement chat state
   const [refineMessages, setRefineMessages] = useState<ChatMessage[]>([])
@@ -452,10 +453,10 @@ export default function ProposalsPage() {
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
         body { font-family: 'Inter', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 40px; color: #1a1a2e; line-height: 1.7; font-size: 14px; }
-        h1 { font-size: 28px; font-weight: 800; border-bottom: 3px solid #f5a623; padding-bottom: 10px; margin-top: 32px; }
+        h1 { font-size: 28px; font-weight: 800; border-bottom: 2px solid #ff6b4a; padding-bottom: 10px; margin-top: 32px; }
         h2 { font-size: 20px; font-weight: 700; margin-top: 28px; color: #2d2d44; }
         h3 { font-size: 16px; font-weight: 700; margin-top: 20px; color: #4a4a6a; }
-        blockquote { border-left: 3px solid #f5a623; background: #fff8eb; padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; }
+        blockquote { border-left: 2px solid #ff6b4a; background: rgba(255,107,74,0.05); padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; }
         hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
         @media print { body { margin: 20px; } }
       </style>
@@ -484,6 +485,42 @@ export default function ProposalsPage() {
     setStep('chat')
   }
 
+  // --- Generate PPTX proposal ---
+  const handleGeneratePptx = async () => {
+    setGeneratingPptx(true)
+    try {
+      const brief = chatMessages.map((m) => `${m.role}: ${m.content}`).join('\n')
+      const res = await fetch('/api/generate-pptx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brief }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `Proposal ready for **${data.client}**. Click below to download.`,
+            download_url: data.download_url,
+          },
+        ])
+      } else {
+        setChatMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: `Error generating proposal: ${data.error}` },
+        ])
+      }
+    } catch (err) {
+      console.error(err)
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Something went wrong generating the PPTX.' },
+      ])
+    }
+    setGeneratingPptx(false)
+  }
+
   // --- Chat bubble ---
   function ChatBubble({ msg }: { msg: ChatMessage }) {
     const isUser = msg.role === 'user'
@@ -492,7 +529,7 @@ export default function ProposalsPage() {
         alignSelf: isUser ? 'flex-end' : 'flex-start',
         maxWidth: '85%', padding: '12px 16px',
         borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-        background: isUser ? 'var(--gold)' : 'var(--bg-secondary)',
+        background: isUser ? 'var(--accent)' : 'var(--bg-secondary)',
         color: isUser ? '#0a0a0f' : 'var(--text-primary)',
         fontSize: '14px', lineHeight: '1.6',
         border: isUser ? 'none' : '1px solid var(--border)',
@@ -502,6 +539,20 @@ export default function ProposalsPage() {
           <div style={{ display: 'flex', gap: '4px', padding: '4px 0' }}>
             <div className="typing-dot" /><div className="typing-dot" /><div className="typing-dot" />
           </div>
+        )}
+        {msg.download_url && (
+          <a
+            href={msg.download_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-block', marginTop: '8px', padding: '8px 16px',
+              background: '#0BBCD4', color: '#0A0F1E', fontWeight: 700,
+              borderRadius: '8px', textDecoration: 'none', fontSize: '13px',
+            }}
+          >
+            Download Proposal (.pptx)
+          </a>
         )}
       </div>
     )
@@ -538,13 +589,23 @@ export default function ProposalsPage() {
 
             {/* Generate button appears after brief is ready */}
             {briefReady && !waitingForVisuals && (
-              <div style={{ alignSelf: 'center', marginTop: '8px' }}>
+              <div style={{ alignSelf: 'center', marginTop: '8px', display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <button onClick={handleGenerateClick} className="btn-gold" style={{
                   padding: '14px 32px', fontSize: '15px', fontWeight: '700',
                   display: 'flex', alignItems: 'center', gap: '10px',
                   borderRadius: '14px', animation: 'fadeIn 0.4s ease',
                 }}>
                   <BoltIcon /> Generate Proposal
+                </button>
+                <button onClick={handleGeneratePptx} disabled={generatingPptx} style={{
+                  padding: '14px 32px', fontSize: '15px', fontWeight: '700',
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  borderRadius: '14px', animation: 'fadeIn 0.4s ease',
+                  background: '#0BBCD4', color: '#0A0F1E', border: 'none',
+                  cursor: generatingPptx ? 'not-allowed' : 'pointer',
+                  opacity: generatingPptx ? 0.5 : 1, fontFamily: 'inherit',
+                }}>
+                  <BoltIcon /> {generatingPptx ? 'Generating...' : 'Generate PPTX'}
                 </button>
               </div>
             )}
@@ -580,7 +641,7 @@ export default function ProposalsPage() {
               Building Your Proposal
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-              for <span style={{ color: 'var(--gold)', fontWeight: '700' }}>{prospectName}</span>
+              for <span style={{ color: 'var(--accent)', fontWeight: '700' }}>{prospectName}</span>
             </p>
           </div>
 
@@ -601,7 +662,7 @@ export default function ProposalsPage() {
                   <div style={{
                     width: '28px', height: '28px', borderRadius: '50%', display: 'flex',
                     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    background: isDone ? '#4caf7d' : isCurrent ? 'var(--gold)' : 'var(--bg-secondary)',
+                    background: isDone ? '#10b981' : isCurrent ? 'var(--accent)' : 'var(--bg-secondary)',
                     color: isDone || isCurrent ? '#fff' : 'var(--text-muted)',
                   }}>
                     {isDone ? <CheckIcon /> : isCurrent ? <Spinner size={14} /> : (
@@ -610,7 +671,7 @@ export default function ProposalsPage() {
                   </div>
                   <span style={{
                     fontSize: '14px', fontWeight: isCurrent ? '700' : '500',
-                    color: isDone ? '#4caf7d' : isCurrent ? 'var(--text-primary)' : 'var(--text-muted)',
+                    color: isDone ? '#10b981' : isCurrent ? 'var(--text-primary)' : 'var(--text-muted)',
                   }}>
                     {displayLabel}
                     {isDone && <span style={{ fontWeight: '500', marginLeft: '6px', opacity: 0.7 }}>Done</span>}
@@ -642,6 +703,16 @@ export default function ProposalsPage() {
               </button>
               <button onClick={() => setShowPresentation(true)} className="btn-gold" style={{ padding: '6px 12px', fontSize: '11px' }}>
                 <PresentIcon /> Present
+              </button>
+              <button onClick={handleGeneratePptx} disabled={generatingPptx}
+                style={{
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 600,
+                  background: '#0BBCD4', color: '#0A0F1E', border: 'none',
+                  borderRadius: '8px', cursor: generatingPptx ? 'not-allowed' : 'pointer',
+                  opacity: generatingPptx ? 0.5 : 1, fontFamily: 'inherit',
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                }}>
+                <DownloadIcon /> {generatingPptx ? 'Generating...' : 'PPTX'}
               </button>
               {canvaUrl && (
                 <a href={canvaUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{ padding: '6px 12px', fontSize: '11px', textDecoration: 'none' }}>
@@ -677,7 +748,7 @@ export default function ProposalsPage() {
                     <button onClick={() => setShowVersions(!showVersions)} style={{
                       padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
                       background: showVersions ? 'var(--gold-light)' : 'transparent',
-                      border: '1px solid var(--border)', color: showVersions ? 'var(--gold)' : 'var(--text-muted)',
+                      border: '1px solid var(--border)', color: showVersions ? 'var(--accent)' : 'var(--text-muted)',
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}>
                       V{activeVersion + 1}/{versions.length}
@@ -693,7 +764,7 @@ export default function ProposalsPage() {
                         display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px',
                         background: i === activeVersion ? 'var(--gold-light)' : 'transparent',
                         border: i === activeVersion ? '1px solid var(--gold-border)' : '1px solid transparent',
-                        color: i === activeVersion ? 'var(--gold)' : 'var(--text-muted)',
+                        color: i === activeVersion ? 'var(--accent)' : 'var(--text-muted)',
                         cursor: 'pointer', fontSize: '11px', fontFamily: 'inherit', textAlign: 'left', width: '100%',
                       }}>
                         <span style={{ fontWeight: 700, flexShrink: 0 }}>V{i + 1}</span>
@@ -738,7 +809,7 @@ export default function ProposalsPage() {
                     alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
                     maxWidth: '90%', padding: '10px 14px',
                     borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                    background: msg.role === 'user' ? 'var(--gold)' : 'var(--bg-secondary)',
+                    background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg-secondary)',
                     color: msg.role === 'user' ? '#0a0a0f' : 'var(--text-primary)',
                     fontSize: '13px', lineHeight: '1.6',
                     border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',

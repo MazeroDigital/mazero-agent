@@ -56,11 +56,11 @@ const INTERSTONES_SAMPLE = {
 }
 
 const AVATAR_COLORS = [
-  { bg: 'rgba(245,166,35,0.1)', border: 'rgba(245,166,35,0.25)', text: '#d97706' },
-  { bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.25)', text: '#2563eb' },
-  { bg: 'rgba(168,85,247,0.1)', border: 'rgba(168,85,247,0.25)', text: '#9333ea' },
-  { bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.25)', text: '#059669' },
-  { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.25)', text: '#dc2626' },
+  { bg: 'rgba(255,107,74,0.08)', border: 'rgba(255,107,74,0.18)', text: '#ff6b4a' },
+  { bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.18)', text: '#60a5fa' },
+  { bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.18)', text: '#c084fc' },
+  { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.18)', text: '#34d399' },
+  { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.18)', text: '#f87171' },
 ]
 
 function getAvatarColor(name: string) {
@@ -104,8 +104,8 @@ function BrainIcon() {
 const LABEL = {
   display: 'block' as const,
   fontSize: '11px',
-  fontWeight: '700' as const,
-  color: 'var(--text-secondary)',
+  fontWeight: '500' as const,
+  color: '#888',
   marginBottom: '7px',
   textTransform: 'uppercase' as const,
   letterSpacing: '0.07em',
@@ -276,11 +276,11 @@ export default function ClientsPage() {
   }
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '36px 44px', background: '#f7f8fc' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '36px 44px', background: '#0a0a0a' }} className="animate-fadeIn">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', fontFamily: 'var(--font-syne), sans-serif' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: '600', color: '#e8e8e8' }}>
             Clients
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
@@ -300,11 +300,11 @@ export default function ClientsPage() {
           ))}
         </div>
       ) : clients.length === 0 ? (
-        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '16px', padding: '64px 40px', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ background: '#111', border: '1px solid var(--border)', borderRadius: '16px', padding: '64px 40px', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '22px' }}>
             👥
           </div>
-          <p style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)', marginBottom: '6px' }}>No clients yet</p>
+          <p style={{ fontWeight: '500', fontSize: '15px', color: 'var(--text-primary)', marginBottom: '6px' }}>No clients yet</p>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '22px' }}>
             Add your first client and the AI will build their Brain automatically.
           </p>
@@ -324,18 +324,18 @@ export default function ClientsPage() {
             return (
               <div
                 key={client.id}
-                style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', boxShadow: 'var(--shadow-sm)', transition: 'box-shadow 0.15s, transform 0.15s', display: 'flex', flexDirection: 'column', gap: '14px' }}
+                style={{ background: '#111', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', boxShadow: 'var(--shadow-sm)', transition: 'box-shadow 0.15s, transform 0.15s', display: 'flex', flexDirection: 'column', gap: '14px' }}
                 onMouseEnter={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.boxShadow = 'var(--shadow-md)'; el.style.transform = 'translateY(-1px)' }}
                 onMouseLeave={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.boxShadow = 'var(--shadow-sm)'; el.style.transform = 'translateY(0)' }}
               >
                 {/* Top row: avatar + name + delete */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '11px', background: av.bg, border: `1px solid ${av.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '800', color: av.text, flexShrink: 0, fontFamily: 'var(--font-syne), sans-serif' }}>
+                    <div style={{ width: '42px', height: '42px', borderRadius: '11px', background: av.bg, border: `1px solid ${av.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '500', color: av.text, flexShrink: 0, fontFamily: 'var(--font-syne), sans-serif' }}>
                       {client.name.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1.2 }}>{client.name}</div>
+                      <div style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', lineHeight: 1.2 }}>{client.name}</div>
                       {client.industry && (
                         <div style={{ fontSize: '11px', color: av.text, marginTop: '3px', background: av.bg, border: `1px solid ${av.border}`, borderRadius: '5px', padding: '1px 7px', display: 'inline-block', fontWeight: '600' }}>
                           {client.industry}
@@ -359,7 +359,7 @@ export default function ClientsPage() {
                   {isAnalyzing ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f5a623', animation: 'pulse 1.5s infinite' }} />
-                      <span style={{ fontSize: '12px', color: '#d97706', fontWeight: '600' }}>Building Client Brain…</span>
+                      <span style={{ fontSize: '12px', color: '#ff6b4a', fontWeight: '600' }}>Building Client Brain…</span>
                     </div>
                   ) : client.brain_status === 'error' ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -374,8 +374,8 @@ export default function ClientsPage() {
                   ) : brain ? (
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
-                        <span style={{ color: '#d97706' }}><BrainIcon /></span>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Client Brain</span>
+                        <span style={{ color: '#ff6b4a' }}><BrainIcon /></span>
+                        <span style={{ fontSize: '11px', fontWeight: '500', color: '#ff6b4a', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Client Brain</span>
                       </div>
                       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: '1.55', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {brain.summary}
@@ -410,7 +410,7 @@ export default function ClientsPage() {
                   {brain && (
                     <button
                       onClick={() => setViewingBrain(client)}
-                      style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: '700', color: '#d97706', background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.22)', borderRadius: '7px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                      style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: '500', color: '#ff6b4a', background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.22)', borderRadius: '7px', padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(245,166,35,0.15)' }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(245,166,35,0.08)' }}
                     >
@@ -429,10 +429,10 @@ export default function ClientsPage() {
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal" style={{ maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>Add Client</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: '500', color: 'var(--text-primary)' }}>Add Client</h2>
               <button
                 onClick={() => setForm(INTERSTONES_SAMPLE)}
-                style={{ fontSize: '11px', fontWeight: '700', color: '#d97706', background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.22)', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ fontSize: '11px', fontWeight: '500', color: '#ff6b4a', background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.22)', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Load Sample ✦
               </button>
@@ -478,7 +478,7 @@ export default function ClientsPage() {
                   {error}
                 </div>
               )}
-              <div style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.18)', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#92590a' }}>
+              <div style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.18)', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#ff9a6c' }}>
                 ✦ After saving, Claude will analyze this client and build their Brain automatically (takes ~15 seconds).
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
@@ -525,12 +525,12 @@ export default function ClientsPage() {
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: av.bg, border: `1px solid ${av.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: av.text, fontFamily: 'var(--font-syne), sans-serif' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: av.bg, border: `1px solid ${av.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '500', color: av.text, fontFamily: 'var(--font-syne), sans-serif' }}>
                     {viewingBrain.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text-primary)' }}>{viewingBrain.name}</div>
-                    <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{ fontSize: '17px', fontWeight: '500', color: 'var(--text-primary)' }}>{viewingBrain.name}</div>
+                    <div style={{ fontSize: '11px', color: '#ff6b4a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <BrainIcon /> Client Brain
                     </div>
                   </div>
@@ -549,7 +549,7 @@ export default function ClientsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {sections.map(({ label, content }) => (
                   <div key={label} style={{ background: 'var(--bg-secondary)', borderRadius: '10px', padding: '14px 16px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>{label}</div>
+                    <div style={{ fontSize: '10px', fontWeight: '500', color: '#ff6b4a', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>{label}</div>
                     <p style={{ fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: '1.6', margin: 0 }}>{content as string}</p>
                   </div>
                 ))}
@@ -557,10 +557,10 @@ export default function ClientsPage() {
                 {/* List sections */}
                 {listSections.map(({ label, items }) => (
                   <div key={label} style={{ background: 'var(--bg-secondary)', borderRadius: '10px', padding: '14px 16px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>{label}</div>
+                    <div style={{ fontSize: '10px', fontWeight: '500', color: '#ff6b4a', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>{label}</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {items.map((item, i) => (
-                        <span key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', background: '#fff', border: '1px solid var(--border)', borderRadius: '6px', padding: '3px 10px', lineHeight: '1.5' }}>
+                        <span key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', background: '#111', border: '1px solid var(--border)', borderRadius: '6px', padding: '3px 10px', lineHeight: '1.5' }}>
                           {item}
                         </span>
                       ))}
